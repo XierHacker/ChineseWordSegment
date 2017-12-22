@@ -13,38 +13,28 @@ from itertools import chain
 MAX_SENTENCE_SIZE=32
 
 
+def clean(s):  # 清洗.（如每行的开头）去掉
+    if u'“/s' not in s:  # 句子中间的引号不应去掉
+        return s.replace(u' ”/s', '')
+    elif u'”/s' not in s:
+        return s.replace(u'“/s ', '')
+    elif u'‘/s' not in s:
+        return s.replace(u' ’/s', '')
+    elif u'’/s' not in s:
+        return s.replace(u'‘/s ', '')
+    else:
+        return s
+
 #语料文件文件转换为一个原始语料句子的list
 def file2corpus(filename):
     with open(filename, 'rb') as inp:
-        corpus = inp.read().decode('gbk')
+        corpus = inp.read().decode('gbk')   #原始语料 str对象
 
-    #原始语料
-    print("corpus:",type(corpus))
+    corpus = corpus.split('\r\n')           #换行切分,得到一个简陋列表
+    corpus = u''.join(map(clean, corpus))   # 把所有处理的句子连接起来,这里中间连接不用其他字符 str对象
 
-    # 根据换行切分,得到一个简陋列表
-    corpus = corpus.split('\r\n')
-    print("corpus:",type(corpus))
-
-    # 将不规范的内容（如每行的开头）去掉
-    def clean(s):
-        if u'“/s' not in s:  # 句子中间的引号不应去掉
-            return s.replace(u' ”/s', '')
-        elif u'”/s' not in s:
-            return s.replace(u'“/s ', '')
-        elif u'‘/s' not in s:
-            return s.replace(u' ’/s', '')
-        elif u'’/s' not in s:
-            return s.replace(u'‘/s ', '')
-        else:
-            return s
-
-    corpus = u''.join(map(clean, corpus))   # 把所有处理的句子连接起来,这里中间连接不用其他字符
-    print(type(corpus))
-
-    # 以标点符号为分割,把语料划分为一个"句子"列表
-    #[人/b  们/e  常/s  说/s  生/b  活/e  是/s  一/s  部/s  教/b  科/m  书/e  ,....]
-    corpus = re.split(u'[，。！？、‘’“”]/[bems]', corpus)
-    return corpus
+    corpus = re.split(u'[，。！？、‘’“”]/[bems]', corpus)    # 以标点符号为分割,把语料划分为一个"句子"列表
+    return corpus              #[人/b  们/e  常/s  说/s  生/b  活/e  是/s  一/s  部/s  教/b  科/m  书/e ,xxx,....]
 
 
 # 传入原始语料句子corpus列表,
