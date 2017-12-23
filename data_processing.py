@@ -12,7 +12,6 @@ from itertools import chain
 #固定句子长度为32
 MAX_SENTENCE_SIZE=32
 
-
 def clean(s):  # 清洗.（如每行的开头）去掉
     if u'“/s' not in s:  # 句子中间的引号不应去掉
         return s.replace(u' ”/s', '')
@@ -37,25 +36,21 @@ def file2corpus(filename):
     corpus = re.split(u'[，。！？、‘’“”]/[bems]', corpus)    # 以标点符号为分割,把语料划分为一个"句子"列表
     return corpus              #[人/b  们/e  常/s  说/s  生/b  活/e  是/s  一/s  部/s  教/b  科/m  书/e ,xxx,....]
 
-
 def make_component(corpus):
     '''
     :param corpus: 传入原始语料句子corpus列表得到的字数据datas和对应的labels数据都放到dataframe里面存储,方便后面的处理
     :return: df_data,word2id,id2word,tag2id,id2tag
     '''
     print("there has ", len(corpus)," sentence")
+
     sentences= []
     tags = []
     for s in corpus:           #corpus列表得到每句corpus想应的sentence以及对应的labels
         sentence_tags = re.findall('(.)/(.)', s)     # sentence_tags:[('人', 'b'), ('们', 'e'), ('常', 's'), ('说', 's')]
         if sentence_tags:                            # 顺便去除了一些空样本
             sentence_tags = np.array(sentence_tags)
-            sentences.append(sentence_tags[:, 0])
-            tags.append(sentence_tags[:, 1])
-    '''
-    # 注意:这里sentences每一个元素表示一个sentence['人' '们' '常' '说' '生' '活' '是' '一' '部' '教' '科' '书']
-    # tags每一个元素表示的是一个句子对应的标签['b' 'e' 's' 's' 'b' 'e' 's' 's' 's' 'b' 'm' 'e']
-    '''
+            sentences.append(sentence_tags[:, 0])    #sentences每一个元素表示一个sentence['人' '们' '常' '说' '生' '活' '是' '一' '部' '教' '科' '书']
+            tags.append(sentence_tags[:, 1])         #tags每一个元素表示的是一个句子对应的标签['b' 'e' 's' 's' 'b' 'e' 's' 's' 's' 'b' 'm' 'e']
 
     #使用pandas处理,简化流程
     df_data = pd.DataFrame({'sentences': sentences, 'tags': tags}, index=range(len(sentences)))
@@ -69,7 +64,7 @@ def make_component(corpus):
 
     # 统计每个字出现的频率,同时相当于去重复,得到字的集合(这里还是Serieas的index对象)
     words_set = (sr_allwords.value_counts()).index
-   
+
     word_ids = range(1, len(words_set) + 1)     # 字的id列表,从1开始，因为准备把0作为填充值
     tags = ['x', 's', 'b', 'm', 'e']             # tags列表
     tag_ids = range(len(tags))                  #tags id列表
@@ -79,14 +74,25 @@ def make_component(corpus):
     id2word = pd.Series(words_set, index=word_ids)      #id到字
     tag2id = pd.Series(tag_ids, index=tags)             #tag到id
     id2tag = pd.Series(tags, index=tag_ids)             #id到tag
-
     return df_data, word2id, id2word, tag2id, id2tag
+    # need to do:save this component to .csv files
 
 
-
-#得到一句话的padding后的 id
 def X_padding(sentence,word2id):
-    pass
+    '''
+    返回一句话padding之后的id列表,使用的时候,把一个字符串转为list传进来就行
+    :param sentence: 一个句子的列表
+    :param word2id: word2id映射
+    :return:   一句话的padding后的 ids
+    '''
+    ids=list(word2id[sentence])
+    if len(ids) > MAX_SENTENCE_SIZE:        #长了就截断
+        return ids[:MAX_SENTENCE_SIZE]
+    if len(ids) < MAX_SENTENCE_SIZE:        #短了就补齐
+
+
+
+    return ids
 
 #得到一个label的padding后的id
 def y_padding(labels,tags2id):
@@ -94,10 +100,16 @@ def y_padding(labels,tags2id):
 
 
 if __name__ =="__main__":
-    corpus=file2corpus(filename='data/msr_train.txt')
+    corpus=file2corpus(filename='data/corpus/msr_train.txt')
     print('Sentences number:', len(corpus))
     print('Sentence Example:\n', corpus[0])
 
+    df_data, word2id, id2word, tag2id, id2tag=make_component(corpus)
+    print(df_data.head(3))
+    print(word2id.head(3))
+
+    ids=X_padding(list("的一国"),word2id)
+    print(ids)
     #orpus,labels=make_corpus(sentences)
     #print(len(corpus),len(labels))
     #print(corpus[0],labels[0])
