@@ -1,0 +1,5 @@
+#固定句子长度为32
+MAX_SENTENCE_SIZE=32
+
+
+
