@@ -1,5 +1,5 @@
 '''
-#   BMES taged dataset
+#   BMES taged corpus
 #   author:xiekun 2017.12.22
 '''
 import numpy as np
@@ -11,7 +11,7 @@ from parameter import MAX_SENTENCE_SIZE
 
 def clean(s):
     '''
-     # 清洗.（如每行的开头）去掉
+     清洗.
     :param s:
     :return:
     '''
@@ -38,7 +38,7 @@ def file2corpus(filename):
     corpus = re.split(u'[，。！？、‘’“”]/[bems]', corpus)    # 以标点符号为分割,把语料划分为一个"句子"列表
     return corpus              #[人/b  们/e  常/s  说/s  生/b  活/e  是/s  一/s  部/s  教/b  科/m  书/e ,xxx,....]
 
-def make_component(corpus,save=False):
+def make_component(corpus):
     '''
     :param corpus: 传入原始语料句子corpus列表得到的字数据datas和对应的labels数据都放到dataframe里面存储,方便后面的处理
     :return: df_data,word2id,id2word,tag2id,id2tag
@@ -66,63 +66,71 @@ def make_component(corpus,save=False):
     tag_ids = range(len(tags))                  #tag的id列表
 
     # 映射表
-    word2id = pd.Series(word_ids, index=words_set)      #字到id
-    id2word = pd.Series(words_set, index=word_ids)      #id到字
+    word2id = pd.Series(word_ids, index=words)      #字到id
+    id2word = pd.Series(words, index=word_ids)      #id到字
     tag2id = pd.Series(tag_ids, index=tags)             #tag到id
     id2tag = pd.Series(tags, index=tag_ids)             #id到tag
     return df_data, word2id, id2word, tag2id, id2tag
     # need to do:save this component to .csv files
 
-
-def X_padding(sentence,word2id):
+def make_dataset(filename,name=None):
     '''
-    返回一句话padding之后的id列表,使用的时候,把一个字符串转为list传进来就行
-    :param sentence: 一个句子的列表
-    :param word2id: word2id映射
-    :return:   一句话的padding后的 ids
-    '''
-    ids=list(word2id[sentence])
-    if len(ids) > MAX_SENTENCE_SIZE:        #超过就截断
-        return ids[:MAX_SENTENCE_SIZE]
-    if len(ids) < MAX_SENTENCE_SIZE:        #短了就补齐
-        ids.extend([0]*(MAX_SENTENCE_SIZE-len(ids)))
-    return ids
-
-
-def y_padding(tags,tags2id):
-    '''
-    #得到一个label的padding后的id
-    :param tags:
-    :param tags2id:
+    转换为最后模型适合的数据集,name表示转换后的数据集存储在哪个文件下面./dataset/name
+    :param filename: 原始数据集的文件名
+    :param name:
     :return:
     '''
-    ids = list(tags2id[tags])
-    if len(ids) > MAX_SENTENCE_SIZE:  # 超过就截断
-        return ids[:MAX_SENTENCE_SIZE]
-    if len(ids) < MAX_SENTENCE_SIZE:  # 短了就补齐
-        ids.extend([0] * (MAX_SENTENCE_SIZE - len(ids)))
-    return ids
-
-def make_dataset(filename):
+    start_time=time.time()
     corpus = file2corpus(filename)
-    print("corpus contains", len(corpus), " sentence")
-    df_data, word2id, id2word, tag2id, id2tag = make_component(corpus,save=False)
-    #把数据转换为ids的数据
+    print("corpus contains", len(corpus), " sentences")
 
+    df_data, words2id, id2words, tags2id, id2tags = make_component(corpus)
+    print("dataset contains ",df_data.shape[0]," sentences")
+
+    def X_padding(sentence):
+        '''
+        !!!!!!!!!!可提速!!!!!!!!
+        返回一句话padding之后的id列表,使用的时候,把一个字符串转为list传进来就行
+        :param sentence: 一个句子的列表
+        :param word2id: word2id映射
+        :return:   一句话的padding后的 ids
+
+        '''
+        ids = list(words2id[sentence])
+        if len(ids) > MAX_SENTENCE_SIZE:  # 超过就截断
+            return ids[:MAX_SENTENCE_SIZE]
+        if len(ids) < MAX_SENTENCE_SIZE:  # 短了就补齐
+            ids.extend([0] * (MAX_SENTENCE_SIZE - len(ids)))
+        return ids
+
+    def y_padding(tags):
+        '''
+        !!!!!!!!!!!可提速!!!!!!!!!
+        #得到一个label的padding后的id
+        :param tags:
+        :param tags2id:
+        :return:
+        '''
+        ids = list(tags2id[tags])
+        if len(ids) > MAX_SENTENCE_SIZE:  # 超过就截断
+            return ids[:MAX_SENTENCE_SIZE]
+        if len(ids) < MAX_SENTENCE_SIZE:  # 短了就补齐
+            ids.extend([0] * (MAX_SENTENCE_SIZE - len(ids)))
+        return ids
+
+    #把数据转换为ids的数据
+    df_data['X'] = df_data['sentences'].apply(X_padding)
+    df_data['y'] = df_data['tags'].apply(y_padding)
+
+    duration=time.time()-start_time
+    print("this operation spends ",duration/60," mins")
+    return df_data
 
 
 if __name__ =="__main__":
-    ids_sentence=X_padding(list("的一国"),word2id)
-    #print(ids)
-    #print(len(ids))
-    ids_tags=y_padding(['x', 's', 'b', 'm', 'e'],tag2id)
-    #print("ids_tags:",ids_tags)
-    #orpus,labels=make_corpus(sentences)
-    #print(len(corpus),len(labels))
-    #print(corpus[0],labels[0])
-    #print("elements of datas:",type(corpus[0]))
-
-    #merge2frame(datas,labels)
-    #all_words=chain(datas)
-    #print(list(all_words))
-    #print(word2id.head(5))
+   data_frame=make_dataset(filename="./data/corpus/msr_train.txt")
+   print(data_frame.shape)
+   print(data_frame["sentences"].head(2))
+   print(data_frame["tags"].head(2))
+   print(data_frame['X'].head(2))
+   print(data_frame["y"].head(2))
