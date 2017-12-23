@@ -1,0 +1,1 @@
+you can store corpus in this folder
