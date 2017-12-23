@@ -8,9 +8,9 @@ import pandas as pd
 import re
 import time
 from itertools import chain
+from parameter import MAX_SENTENCE_SIZE
 
-#固定句子长度为32
-MAX_SENTENCE_SIZE=32
+
 
 def clean(s):  # 清洗.（如每行的开头）去掉
     if u'“/s' not in s:  # 句子中间的引号不应去掉
