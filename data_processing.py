@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import re
 import time
+import os
 from itertools import chain
 from parameter import MAX_SENTENCE_SIZE
 
@@ -80,6 +81,7 @@ def make_dataset(filename,name=None):
     :param name:
     :return:
     '''
+    print("************conver to dataset*************")
     start_time=time.time()
     corpus = file2corpus(filename)
     print("corpus contains", len(corpus), " sentences")
@@ -122,13 +124,25 @@ def make_dataset(filename,name=None):
     df_data['X'] = df_data['sentences'].apply(X_padding)
     df_data['y'] = df_data['tags'].apply(y_padding)
 
+    if not os.path.exists("./dataset/"):
+        os.mkdir("./dataset/")
+    if not os.path.exists("./dataset/"+name):
+        os.mkdir("./dataset/"+name)
+    # 保存处理之后的文件为.scv格式
+    df_data.to_csv(path_or_buf="./dataset/"+name+"/df_data.csv",encoding="utf-8")
+    words2id.to_csv(path="./dataset/"+name+"/words2id.csv",encoding="utf-8")
+    id2words.to_csv(path="./dataset/"+name+"/id2words.csv",encoding="utf-8")
+    tags2id.to_csv(path="./dataset/"+name+"/tags2id.csv",encoding="utf-8")
+    id2tags.to_csv(path="./dataset/"+name+"/id2tags.csv",encoding="utf-8")
+
     duration=time.time()-start_time
     print("this operation spends ",duration/60," mins")
+    print("******************END********************")
     return df_data
 
 
 if __name__ =="__main__":
-   data_frame=make_dataset(filename="./data/corpus/msr_train.txt")
+   data_frame=make_dataset(filename="./data/corpus/msr_train.txt",name="msr")
    print(data_frame.shape)
    print(data_frame["sentences"].head(2))
    print(data_frame["tags"].head(2))
