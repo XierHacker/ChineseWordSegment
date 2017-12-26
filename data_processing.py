@@ -39,7 +39,7 @@ def file2corpus(filename):
     corpus = re.split(u'[，。！？、‘’“”]/[bems]', corpus)    # 以标点符号为分割,把语料划分为一个"句子"列表
     return corpus              #[人/b  们/e  常/s  说/s  生/b  活/e  是/s  一/s  部/s  教/b  科/m  书/e ,xxx,....]
 
-def make_component(corpus):
+def make_component(corpus,name):
     '''
     :param corpus: 传入原始语料句子corpus列表得到的字数据datas和对应的labels数据都放到dataframe里面存储,方便后面的处理
     :return: df_data,word2id,id2word,tag2id,id2tag
@@ -62,17 +62,23 @@ def make_component(corpus):
     sr_allwords = pd.Series(data=all_words)         # 2.列表做成pandas的Series
 
     words = (sr_allwords.value_counts()).index  #字列表.统计每个字出现的频率,同时相当于去重复,得到字的集合(这里还是Serieas的index对象)
-    word_ids = range(1, len(words) + 1)         #字的id列表,从1开始，因为准备把0作为填充值
+    words_id = range(1, len(words) + 1)         #字的id列表,从1开始，因为准备把0作为填充值
     tags = ['x', 's', 'b', 'm', 'e']            #tag列表
-    tag_ids = range(len(tags))                  #tag的id列表
+    tags_id = range(len(tags))                  #tag的id列表
 
-    # 映射表
-    word2id = pd.Series(word_ids, index=words)      #字到id
-    id2word = pd.Series(words, index=word_ids)      #id到字
-    tag2id = pd.Series(tag_ids, index=tags)             #tag到id
-    id2tag = pd.Series(tags, index=tag_ids)             #id到tag
-    return df_data, word2id, id2word, tag2id, id2tag
-    # need to do:save this component to .csv files
+    #保存基本组件,在./dataset/name/下面会有words_ids.csv,tags_ids.csv,df_data.csv三个文件
+    if not os.path.exists("./dataset/"):
+        os.mkdir("./dataset/")
+    if not os.path.exists("./dataset/"+name):
+        os.mkdir("./dataset/"+name)
+
+    pd.DataFrame(data={"words":words,"words_id":words_id}).\                    #words以及对应的id组件
+        to_csv(path_or_buf="./dataset/"+name+"/words_ids.csv",index=False,encoding="utf_8")
+    pd.DataFrame(data={"tags":tags,"tags_id":tags_id}).\                        #tags以及对应的id组件
+        to_csv(path_or_buf="./dataset/"+name+"/tags_ids.csv",index=False,encoding="utf_8")
+
+    df_data.to_csv(path_or_buf="./dataset/"+name+"/df_data.csv",index=False,encoding="utf_8")
+
 
 def make_dataset(filename,name=None):
     '''
@@ -86,7 +92,10 @@ def make_dataset(filename,name=None):
     corpus = file2corpus(filename)
     print("corpus contains", len(corpus), " sentences")
 
-    df_data, words2id, id2words, tags2id, id2tags = make_component(corpus)
+    #保存基本组件
+    make_component(corpus,name)
+
+    df_data, words2id, id2words, tags2id, id2tags =
     print("dataset contains ",df_data.shape[0]," sentences")
 
     def X_padding(sentence):
@@ -124,10 +133,8 @@ def make_dataset(filename,name=None):
     df_data['X'] = df_data['sentences'].apply(X_padding)
     df_data['y'] = df_data['tags'].apply(y_padding)
 
-    if not os.path.exists("./dataset/"):
-        os.mkdir("./dataset/")
-    if not os.path.exists("./dataset/"+name):
-        os.mkdir("./dataset/"+name)
+
+
     # 保存处理之后的文件为.scv格式
     df_data.to_csv(path_or_buf="./dataset/"+name+"/df_data.csv",encoding="utf-8")
     words2id.to_csv(path="./dataset/"+name+"/words2id.csv",encoding="utf-8")
