@@ -42,7 +42,7 @@ def file2corpus(filename):
 def make_component(corpus,name):
     '''
     :param corpus: 传入原始语料句子corpus列表得到的字数据datas和对应的labels数据都放到dataframe里面存储,方便后面的处理
-    :return: df_data,word2id,id2word,tag2id,id2tag
+    :return: df_data
     '''
     sentences= []
     tags = []
@@ -72,13 +72,37 @@ def make_component(corpus,name):
     if not os.path.exists("./dataset/"+name):
         os.mkdir("./dataset/"+name)
 
-    pd.DataFrame(data={"words":words,"words_id":words_id}).\                    #words以及对应的id组件
+    # words以及对应的id组件
+    pd.DataFrame(data={"words":words,"id":words_id}).\
         to_csv(path_or_buf="./dataset/"+name+"/words_ids.csv",index=False,encoding="utf_8")
-    pd.DataFrame(data={"tags":tags,"tags_id":tags_id}).\                        #tags以及对应的id组件
+    # tags以及对应的id组件
+    pd.DataFrame(data={"tags":tags,"id":tags_id}).\
         to_csv(path_or_buf="./dataset/"+name+"/tags_ids.csv",index=False,encoding="utf_8")
 
-    df_data.to_csv(path_or_buf="./dataset/"+name+"/df_data.csv",index=False,encoding="utf_8")
+    return df_data      #暂时不保存,返回
 
+def read_component(name):
+    '''
+    从文件里面读取基本的component
+    :param name:
+    :return: words2id, id2words, tags2id, id2tags
+    '''
+
+    #读取words和ids的dataframe
+    df_words_ids=pd.read_csv(filepath_or_buffer="./dataset/"+name+"/words_ids.csv",encoding="utf-8")
+
+    #读取tags和ids的dataframe
+    df_tags_ids=pd.read_csv(filepath_or_buffer="./dataset/"+name+"/tags_ids.csv",encoding="utf-8")
+
+    #装换为words2id, id2words, tags2id, id2tags
+    df_data=pd.DataFrame(data={})
+    words2id=pd.Series(data=df_words_ids["id"].values,index=df_words_ids["words"].values)
+    id2words=pd.Series(data=df_words_ids["words"].values,index=df_words_ids["id"].values)
+
+    tags2id = pd.Series(data=df_tags_ids["id"].values, index=df_tags_ids["tags"].values)
+    id2tags = pd.Series(data=df_tags_ids["tags"].values, index=df_tags_ids["id"].values)
+
+    return words2id, id2words, tags2id, id2tags
 
 def make_dataset(filename,name=None):
     '''
@@ -89,13 +113,13 @@ def make_dataset(filename,name=None):
     '''
     print("************conver to dataset*************")
     start_time=time.time()
-    corpus = file2corpus(filename)
-    print("corpus contains", len(corpus), " sentences")
+    corpus = file2corpus(filename);print("corpus contains", len(corpus), " sentences")
 
     #保存基本组件
-    make_component(corpus,name)
+    df_data=make_component(corpus,name)
 
-    df_data, words2id, id2words, tags2id, id2tags =
+    #读取组件,并且装换为合适的格式
+    words2id, id2words, tags2id, id2tags =read_component(name)
     print("dataset contains ",df_data.shape[0]," sentences")
 
     def X_padding(sentence):
@@ -133,25 +157,11 @@ def make_dataset(filename,name=None):
     df_data['X'] = df_data['sentences'].apply(X_padding)
     df_data['y'] = df_data['tags'].apply(y_padding)
 
+    #保存最终数据
+    df_data.to_csv(path_or_buf="./dataset/"+name+"/.final.csv")
 
-
-    # 保存处理之后的文件为.scv格式
-    df_data.to_csv(path_or_buf="./dataset/"+name+"/df_data.csv",encoding="utf-8")
-    words2id.to_csv(path="./dataset/"+name+"/words2id.csv",encoding="utf-8")
-    id2words.to_csv(path="./dataset/"+name+"/id2words.csv",encoding="utf-8")
-    tags2id.to_csv(path="./dataset/"+name+"/tags2id.csv",encoding="utf-8")
-    id2tags.to_csv(path="./dataset/"+name+"/id2tags.csv",encoding="utf-8")
-
-    duration=time.time()-start_time
-    print("this operation spends ",duration/60," mins")
+    duration=time.time()-start_time;print("this operation spends ",duration/60," mins")
     print("******************END********************")
-    return df_data
-
 
 if __name__ =="__main__":
-   data_frame=make_dataset(filename="./data/corpus/msr_train.txt",name="msr")
-   print(data_frame.shape)
-   print(data_frame["sentences"].head(2))
-   print(data_frame["tags"].head(2))
-   print(data_frame['X'].head(2))
-   print(data_frame["y"].head(2))
+    make_dataset(filename="./data/corpus/msr_train.txt",name="msr")
