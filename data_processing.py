@@ -81,6 +81,7 @@ def make_component(corpus,name):
 
     return df_data      #暂时不保存,返回
 
+
 def read_component(name):
     '''
     从文件里面读取基本的component
@@ -158,9 +159,10 @@ def make_dataset(filename,name=None):
     df_data['y'] = df_data['tags'].apply(y_padding)
 
     #保存最终数据
-    df_data.to_csv(path_or_buf="./dataset/"+name+"/.final.csv")
+    df_data.to_csv(path_or_buf="./dataset/"+name+"/.final.csv",index=False,encoding="utf-8")
 
-    duration=time.time()-start_time;print("this operation spends ",duration/60," mins")
+    duration=time.time()-start_time; print("this operation spends ",duration/60," mins")
+
     print("******************END********************")
 
 if __name__ =="__main__":
