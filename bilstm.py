@@ -2,6 +2,8 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.rnn as rnn
 import tensorflow.contrib.crf as crf
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import
 import parameter
 
 class BiLSTM():
@@ -10,8 +12,167 @@ class BiLSTM():
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph)
 
+        #basic parameters
+        self.learning_rate = parameter.LEARNING_RATE
+        self.max_epoch = parameter.MAX_EPOCH
+        self.embedding_size = parameter.EMBEDDING_SIZE
+        self.class_num = parameter.CLASS_NUM
+        self.hidden_units_num = parameter.HIDDEN_UNITS_NUM
+        self.layer_num = parameter.LAYER_NUM
+        self.max_sentence_size=parameter.MAX_SENTENCE_SIZE
+        self.vocab_size=parameter.VOCAB_SIZE
+
+
     def fit(self):
-        pass
+        #---------------------------------------forward computation--------------------------------------------#
+        #---------------------------------------define graph---------------------------------------------#
+        with self.graph.as_default():
+            # data place holder
+            self.X_p = tf.placeholder(
+                    dtype=tf.int32,
+                    shape=(None, self.max_sentence_size),
+                    name="input_placeholder"
+            )
+            self.y_p = tf.placeholder(
+                    dtype=tf.int32,
+                    shape=(None,self.max_sentence_size),
+                    name="label_placeholder"
+            )
+
+            #embeddings
+            embeddings=tf.Variable(
+                initial_value=tf.zeros(shape=(self.vocab_size,self.embedding_size),dtype=tf.float32),
+                name="embeddings"
+            )
+            #embeded inputs
+            inputs=tf.nn.embedding_lookup(params=embeddings,ids=self.X_p,name="embeded_input")
+
+            #bisltm
+            #forward part
+            lstm_forward1=rnn.BasicLSTMCell(num_units=self.hidden_units_num)
+            lstm_forward2=rnn.BasicLSTMCell(num_units=self.class_num)
+            lstm_forward=rnn.MultiRNNCell(cells=[lstm_forward1,lstm_forward2])
+
+            #backward part
+            lstm_backward1=rnn.BasicLSTMCell(num_units=self.hidden_units_num)
+            lstm_backward2=rnn.BasicLSTMCell(num_units=self.class_num)
+            lstm_backward=rnn.MultiRNNCell(cells=[lstm_backward1,lstm_backward2])
+
+            #result
+            outputs, states = tf.nn.bidirectional_dynamic_rnn(
+                cell_fw=lstm_forward,
+                cell_bw=lstm_backward,
+                inputs=inputs,
+                dtype=tf.float32
+            )
+            outputs_forward = outputs[0]
+            outputs_backward = outputs[1]
+            #shape of h is [batch_size, max_time, cell_fw.output_size]
+            pred = outputs_forward + outputs_backward
+            print("pred.shape:",pred.shape)
+
+            pred_2=tf.reshape(tensor=pred,shape=[-1,5],name="pred")
+            print("pred_2.shape:",pred_2.shape)
+
+            #correct_prediction
+            correct_prediction = tf.equal(tf.cast(tf.argmax(pred_2, 1), tf.int32), tf.reshape(self.y_p, [-1]))
+            print("correct_prediction.shape:",correct_prediction.shape)
+
+            #accracy
+            accracy=tf.reduce_mean(input_tensor=tf.cast(x=correct_prediction,dtype=tf.float32))
+
+            #loss
+            loss=tf.losses.sparse_softmax_cross_entropy(labels=tf.reshape(self.y_p,shape=[-1]),logits=pred_2)
+
+            #optimizer
+            optimizer=tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss)
+
+            self.init_op=tf.global_variables_initializer()
+
+        with self.session as sess:
+            sess.run(self.init_op)
+
+            # restore
+            # new_saver = tf.train.import_meta_graph('./model/my-model-10000.meta')
+            # new_saver.restore(sess, './model/my-model-10000')
+
+            print("------------traing start-------------")
+
+            for train_index, validation_index in indices:
+                print("epoch:", epoch)
+
+                trainDataSize = train_index.shape[0]
+                validationDataSize = validation_index.shape[0]
+
+                # average train loss and validation loss
+                train_losses = [];
+                validation_losses = []
+                # average taing accuracy and validation accuracy
+                train_accus = [];
+                validation_accus = []
+
+                # mini batch
+                for i in range(0, (trainDataSize // batch_size)):
+                    _, train_loss, train_accuracy = self.session.run(
+                        fetches=[self.optimizer, self.cross_entropy, self.accuracy],
+
+                        feed_dict={self.X_p: X[train_index[i * batch_size:(i + 1) * batch_size]],
+                                   self.y_dummy_p: y_dummy[train_index[i * batch_size:(i + 1) * batch_size]],
+                                   self.y_p: y[train_index[i * batch_size:(i + 1) * batch_size]]
+                                   }
+                    )
+
+                    validation_loss, validation_accuracy = self.session.run(
+                        fetches=[self.cross_entropy, self.accuracy],
+
+                        feed_dict={self.X_p: X[validation_index],
+                                   self.y_dummy_p: y_dummy[validation_index],
+                                   self.y_p: y[validation_index]
+                                   }
+                    )
+
+                    # add to list to compute average value
+                    train_losses.append(train_loss)
+                    validation_losses.append(validation_loss)
+                    train_accus.append(train_accuracy)
+                    validation_accus.append(validation_accuracy)
+
+                    # weather print training infomation
+                    if (print_log):
+                        print("#############################################################")
+                        print("batch: ", i * batch_size, "~", (i + 1) * batch_size, "of epoch:", epoch)
+                        print("training loss:", train_loss)
+                        print("validation loss:", validation_loss)
+                        print("train accuracy:", train_accuracy)
+                        print("validation accuracy:", validation_accuracy)
+                        print("#############################################################\n")
+
+                # print("train_losses:",train_losses)
+                ave_train_loss = sum(train_losses) / len(train_losses)
+                ave_validation_loss = sum(validation_losses) / len(validation_losses)
+                ave_train_accuracy = sum(train_accus) / len(train_accus)
+                ave_validation_accuracy = sum(validation_accus) / len(validation_accus)
+                print("average training loss:", ave_train_loss)
+                print("average validation loss:", ave_validation_loss)
+                print("average training accuracy:", ave_train_accuracy)
+                print("average validation accuracy:", ave_validation_accuracy)
+                epoch += 1
+
+                # when we get a new best validation accuracy,we store the model
+                if best_validation_accus < ave_validation_accuracy:
+                    print("we got a new best accuracy on validation set!")
+
+                    # Creates a saver. and we only keep the best model
+                    saver = tf.train.Saver()
+                    saver.save(sess, './model/my-model-10000')
+                    # Generates MetaGraphDef.
+                    saver.export_meta_graph('./model/my-model-10000.meta')
+
+
+
+
+
+
 
     def pred(self):
         pass
@@ -19,7 +180,11 @@ class BiLSTM():
     def pred_prob(self):
         pass
 
-
+if __name__ =="__main__":
+    bilstm=BiLSTM()
+    x=[1,2,3,4,5]
+    y=[1,2,3]
+    bilstm.fit()
 
 '''
 For Chinese word segmentation.
@@ -42,9 +207,6 @@ class_num = 5
 hidden_size = 128  # 隐含层节点数
 layer_num = 2  # bi-lstm 层数
 max_grad_norm = 5.0  # 最大梯度（超过此值的梯度将被裁剪）
-'''
-
-
 
 lr = tf.placeholder(tf.float32, [])
 keep_prob = tf.placeholder(tf.float32, [])
@@ -102,9 +264,9 @@ def bi_lstm(X_inputs):
     #                         initial_state_fw = initial_state_fw, initial_state_bw = initial_state_bw, dtype=tf.float32)
     #     except Exception: # Old TensorFlow version only returns outputs not states
     #         outputs = rnn.static_bidirectional_rnn(cell_fw, cell_bw, inputs,
-    #                         initial_state_fw = initial_state_fw, initial_state_bw = initial_state_bw, dtype=tf.float32)
-    #     output = tf.reshape(tf.concat(outputs, 1), [-1, hidden_size * 2])
-    # ***********************************************************
+    #                         initial_state_fw = initial_state_fw, initial_stat output = tf.reshape(tf.concat(outputs, 1), [-1, hidden_size * 2])
+    # ****************************************e_bw = initial_state_bw, dtype=tf.float32)
+    #    *******************
 
     # ***********************************************************
     # ** 3. bi-lstm 计算（展开）
@@ -168,7 +330,6 @@ train_op = optimizer.apply_gradients(zip(grads, tvars),
                                      global_step=tf.contrib.framework.get_or_create_global_step())
 print
 'Finished creating the bi-lstm model.'
-
 
 
 def test_epoch(dataset):
@@ -235,6 +396,15 @@ for epoch in xrange(max_max_epoch):
 print '**TEST RESULT:'
 test_acc, test_cost = test_epoch(data_test)
 print '**Test %d, acc=%g, cost=%g' % (data_test.y.shape[0], test_acc, test_cost)
+
+'''
+
+
+
+
+
+
+
 
 
 '''
