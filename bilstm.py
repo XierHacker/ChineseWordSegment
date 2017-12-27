@@ -2,8 +2,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.rnn as rnn
 import tensorflow.contrib.crf as crf
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import
+import time
 import parameter
 
 class BiLSTM():
@@ -21,9 +20,9 @@ class BiLSTM():
         self.layer_num = parameter.LAYER_NUM
         self.max_sentence_size=parameter.MAX_SENTENCE_SIZE
         self.vocab_size=parameter.VOCAB_SIZE
+        self.batch_size=parameter.BATCH_SIZE
 
-
-    def fit(self):
+    def fit(self,X_train,y_train,X_validation,y_validation,print_log=True,name=None):
         #---------------------------------------forward computation--------------------------------------------#
         #---------------------------------------define graph---------------------------------------------#
         with self.graph.as_default():
@@ -79,106 +78,88 @@ class BiLSTM():
             print("correct_prediction.shape:",correct_prediction.shape)
 
             #accracy
-            accracy=tf.reduce_mean(input_tensor=tf.cast(x=correct_prediction,dtype=tf.float32))
+            self.accuracy=tf.reduce_mean(input_tensor=tf.cast(x=correct_prediction,dtype=tf.float32))
 
             #loss
-            loss=tf.losses.sparse_softmax_cross_entropy(labels=tf.reshape(self.y_p,shape=[-1]),logits=pred_2)
+            self.loss=tf.losses.sparse_softmax_cross_entropy(labels=tf.reshape(self.y_p,shape=[-1]),logits=pred_2)
 
             #optimizer
-            optimizer=tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss)
+            self.optimizer=tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
             self.init_op=tf.global_variables_initializer()
 
+        #------------------------------------Session-----------------------------------------
         with self.session as sess:
-            sess.run(self.init_op)
+            sess.run(self.init_op)          #initialize all variables
 
-            # restore
-            # new_saver = tf.train.import_meta_graph('./model/my-model-10000.meta')
-            # new_saver.restore(sess, './model/my-model-10000')
+            train_Size = X_train.shape[0]
+            validation_Size = X_validation.shape[0]
 
-            print("------------traing start-------------")
-
-            for train_index, validation_index in indices:
-                print("epoch:", epoch)
-
-                trainDataSize = train_index.shape[0]
-                validationDataSize = validation_index.shape[0]
-
-                # average train loss and validation loss
-                train_losses = [];
-                validation_losses = []
-                # average taing accuracy and validation accuracy
-                train_accus = [];
-                validation_accus = []
+            print("Training Start")
+            for epoch in range(1,self.max_epoch+1):
+                start_time=time.time()      #performance evaluation
+                print("Epoch:", epoch)
+                train_losses = [];          # training loss in every mini-batch
+                validation_losses = []      # validation loss in every mini-batch
+                train_accus = [];           # training accuracy in every mini-batch
+                validation_accus = []       # validation accuracy in every mini-batch
 
                 # mini batch
-                for i in range(0, (trainDataSize // batch_size)):
-                    _, train_loss, train_accuracy = self.session.run(
-                        fetches=[self.optimizer, self.cross_entropy, self.accuracy],
+                for i in range(0, (train_Size // self.batch_size)):
 
-                        feed_dict={self.X_p: X[train_index[i * batch_size:(i + 1) * batch_size]],
-                                   self.y_dummy_p: y_dummy[train_index[i * batch_size:(i + 1) * batch_size]],
-                                   self.y_p: y[train_index[i * batch_size:(i + 1) * batch_size]]
-                                   }
+                    _, train_loss, train_accuracy = self.session.run(
+                        fetches=[self.optimizer, self.loss, self.accuracy],
+                        feed_dict={
+                                self.X_p: X_train[i * self.batch_size:(i + 1) * self.batch_size],
+                                self.y_p: y_train[i * self.batch_size:(i + 1) * self.batch_size]
+                            }
                     )
 
                     validation_loss, validation_accuracy = self.session.run(
-                        fetches=[self.cross_entropy, self.accuracy],
-
-                        feed_dict={self.X_p: X[validation_index],
-                                   self.y_dummy_p: y_dummy[validation_index],
-                                   self.y_p: y[validation_index]
-                                   }
+                        fetches=[self.loss, self.accuracy],
+                        feed_dict={
+                                self.X_p: X_validation,
+                                self.y_p: y_validation
+                            }
                     )
 
-                    # add to list to compute average value
+                    # print training infomation
+                    if (print_log):
+                        print("batch: ", i * self.batch_size, "~", (i + 1) * self.batch_size, "of epoch:", epoch)
+                        print("     training loss       :   ", train_loss)
+                        print("     validation loss     :   ", validation_loss)
+                        print("     train accuracy      :   ", train_accuracy)
+                        print("     validation accuracy :   ", validation_accuracy)
+                        print("\n")
+
+                    # add to list
                     train_losses.append(train_loss)
                     validation_losses.append(validation_loss)
                     train_accus.append(train_accuracy)
                     validation_accus.append(validation_accuracy)
+                duration=round((time.time()-start_time)/60,2)
+                print("Epoch ",epoch," finished.","spend ",duration," mins")
+                print("     average training loss        :   ", sum(train_losses) / len(train_losses))
+                print("     average validation loss      :   ", sum(validation_losses) / len(validation_losses))
+                print("     average training accuracy    :   ", sum(train_accus) / len(train_accus))
+                print("     average validation accuracy  :   ", sum(validation_accus) / len(validation_accus))
 
-                    # weather print training infomation
-                    if (print_log):
-                        print("#############################################################")
-                        print("batch: ", i * batch_size, "~", (i + 1) * batch_size, "of epoch:", epoch)
-                        print("training loss:", train_loss)
-                        print("validation loss:", validation_loss)
-                        print("train accuracy:", train_accuracy)
-                        print("validation accuracy:", validation_accuracy)
-                        print("#############################################################\n")
-
-                # print("train_losses:",train_losses)
-                ave_train_loss = sum(train_losses) / len(train_losses)
-                ave_validation_loss = sum(validation_losses) / len(validation_losses)
-                ave_train_accuracy = sum(train_accus) / len(train_accus)
-                ave_validation_accuracy = sum(validation_accus) / len(validation_accus)
-                print("average training loss:", ave_train_loss)
-                print("average validation loss:", ave_validation_loss)
-                print("average training accuracy:", ave_train_accuracy)
-                print("average validation accuracy:", ave_validation_accuracy)
-                epoch += 1
-
+                '''
                 # when we get a new best validation accuracy,we store the model
                 if best_validation_accus < ave_validation_accuracy:
                     print("we got a new best accuracy on validation set!")
-
                     # Creates a saver. and we only keep the best model
                     saver = tf.train.Saver()
                     saver.save(sess, './model/my-model-10000')
                     # Generates MetaGraphDef.
                     saver.export_meta_graph('./model/my-model-10000.meta')
 
+                '''
 
 
-
-
-
-
-    def pred(self):
+    def pred(self,X,y=None):
         pass
 
-    def pred_prob(self):
-        pass
 
 if __name__ =="__main__":
     bilstm=BiLSTM()

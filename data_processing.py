@@ -113,16 +113,17 @@ def make_dataset(filename,name=None):
     :param name:
     :return:
     '''
-    print("Conver To Dataset:")
+    print("Conver Corpus To Dataset!")
     start_time=time.time()
-    corpus = file2corpus(filename); print("corpus contains", len(corpus), " sentences")
+    corpus = file2corpus(filename); print("         corpus contains ", len(corpus), " sentences.")
 
     #保存基本组件,并且返回
+    print("         ----saving component <tags_ids.csv> and <words_ids.csv>")
     df_data=make_component(corpus,name)
 
     #读取组件,并且装换为合适的格式
     words2id, id2words, tags2id, id2tags =read_component(name)
-    print("dataset contains ",df_data.shape[0]," sentences")
+    print("         dataset contains ",df_data.shape[0]," sentences.")
 
     def X_padding(sentence):
         '''
@@ -156,6 +157,7 @@ def make_dataset(filename,name=None):
         return ids
 
     #把数据转换为ids的数据
+    print("         convert data and label to 'ids' represented")
     df_data['X'] = df_data['sentences'].apply(X_padding)
     df_data['y'] = df_data['tags'].apply(y_padding)
 
@@ -163,12 +165,19 @@ def make_dataset(filename,name=None):
     df_data_train,df_data_test=train_test_split(df_data,test_size=0.2)              #训练集和测试集
     df_data_train,df_data_validation=train_test_split(df_data_train,test_size=0.1)  #训练集和验证集
 
-    #保存最终数据
-    df_data_train.to_csv(path_or_buf="./dataset/"+name+"/summary_train.csv",index=False,encoding="utf-8")
-    df_data_validation.to_csv(path_or_buf="./dataset/"+name+"/summary_validation.csv",index=False,encoding="utf-8")
-    df_data_test.to_csv(path_or_buf="./dataset/"+name+"/summary_test.csv",index=False,encoding="utf-8")
-    duration=time.time()-start_time; print("this operation spends ",duration/60," mins")
-    print("******************END********************")
+    #保存最终数据到pkl文件
+    print("         ----saving final dataset <summary_train.pkl>")
+    df_data_train.to_pickle(path="./dataset/"+name+"/summary_train.pkl")
+
+    print("         ----saving final dataset <summary_validation.pkl>")
+    df_data_validation.to_pickle(path="./dataset/"+name+"/summary_validation.pkl")
+
+    print("         ----saving final dataset <summary_test.pkl>")
+    df_data_test.to_pickle(path="./dataset/"+name+"/summary_test.pkl")
+
+    duration=time.time()-start_time;
+    print("END! this operation spends ",round(duration/60,2)," mins")
+
 
 if __name__ =="__main__":
     make_dataset(filename="./data/corpus/msr_train.txt",name="msr")
