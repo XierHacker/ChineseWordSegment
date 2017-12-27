@@ -8,6 +8,7 @@ import re
 import time
 import os
 from itertools import chain
+from sklearn.model_selection import train_test_split
 from parameter import MAX_SENTENCE_SIZE
 
 def clean(s):
@@ -112,11 +113,11 @@ def make_dataset(filename,name=None):
     :param name:
     :return:
     '''
-    print("************conver to dataset*************")
+    print("Conver To Dataset:")
     start_time=time.time()
-    corpus = file2corpus(filename);print("corpus contains", len(corpus), " sentences")
+    corpus = file2corpus(filename); print("corpus contains", len(corpus), " sentences")
 
-    #保存基本组件
+    #保存基本组件,并且返回
     df_data=make_component(corpus,name)
 
     #读取组件,并且装换为合适的格式
@@ -141,7 +142,7 @@ def make_dataset(filename,name=None):
 
     def y_padding(tags):
         '''
-        !!!!!!!!!!!可提速!!!!!!!!!
+            !!!!!!!!!!!可提速!!!!!!!!!
         #得到一个label的padding后的id
         :param tags:
         :param tags2id:
@@ -158,11 +159,15 @@ def make_dataset(filename,name=None):
     df_data['X'] = df_data['sentences'].apply(X_padding)
     df_data['y'] = df_data['tags'].apply(y_padding)
 
+    #数据集切分
+    df_data_train,df_data_test=train_test_split(df_data,test_size=0.2)              #训练集和测试集
+    df_data_train,df_data_validation=train_test_split(df_data_train,test_size=0.1)  #训练集和验证集
+
     #保存最终数据
-    df_data.to_csv(path_or_buf="./dataset/"+name+"/.final.csv",index=False,encoding="utf-8")
-
+    df_data_train.to_csv(path_or_buf="./dataset/"+name+"/summary_train.csv",index=False,encoding="utf-8")
+    df_data_validation.to_csv(path_or_buf="./dataset/"+name+"/summary_validation.csv",index=False,encoding="utf-8")
+    df_data_test.to_csv(path_or_buf="./dataset/"+name+"/summary_test.csv",index=False,encoding="utf-8")
     duration=time.time()-start_time; print("this operation spends ",duration/60," mins")
-
     print("******************END********************")
 
 if __name__ =="__main__":
