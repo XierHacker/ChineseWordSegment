@@ -14,5 +14,5 @@ X_validation=np.asarray(list(df_validation['X'].values))
 y_validation=np.asarray(list(df_validation['y'].values))
 
 #train model
-bilstm=BiLSTM()
+bilstm=BiLSTM_CRF()
 bilstm.fit(X_train,y_train,X_validation,y_validation,"msr")

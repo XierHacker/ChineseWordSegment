@@ -97,32 +97,46 @@ class BiLSTM_CRF():
             logits=tf.matmul(h,w)+b     #shape of logits:[batch_size*max_time, 5]
             print("logit.shape",logits.shape)
 
-            #pred  shape of pred[batch_size*max_time, 1]
-            pred=tf.cast(tf.argmax(logits, 1), tf.int32,name="pred")
-            print("pred.shape",pred.shape)
 
-            #pred in an normal way,shape is [batch_size, max_time]
-            pred_normal=tf.reshape(tensor=pred,shape=(-1,self.max_sentence_size),name="pred_normal")
-            print("pred_normal.shape",pred_normal.shape)
-
-            #correct_prediction
-            correct_prediction = tf.equal(pred, tf.reshape(self.y_p, [-1]))
-            print("correct_prediction.shape:",correct_prediction.shape)
-
-            #accracy
-            self.accuracy=tf.reduce_mean(input_tensor=tf.cast(x=correct_prediction,dtype=tf.float32),name="accuracy")
+            #change logits to the shape of [batch_size,max_sentence_size,5]
+            logits_normal=tf.reshape(
+                    tensor=logits,
+                    shape=(-1,self.max_sentence_size,self.class_num),
+                    name="logits_normal"
+            )
+            print("logits_normal:",logits_normal.shape)
 
             #loss
             log_likelihood,transition_params=crf.crf_log_likelihood(
-                    inputs=tf.reshape(tensor=logits,shape=[-1,self.max_sentence_size,self.class_num]),
-                    tag_indices=self.y_p,
-                    sequence_lengths=self.sequence_lengths
+                inputs=logits_normal,
+                tag_indices=self.y_p,
+                sequence_lengths=self.sequence_lengths
             )
             self.loss = tf.reduce_mean(-log_likelihood)
 
+            #decode,shape of potentials=[batch_size, max_seq_len, num_tags]
+            #shape of decode_tags is [batch_size, max_seq_len]
+            decode_tags,best_score=crf.crf_decode(
+                potentials=logits_normal,
+                transition_params=transition_params,
+                sequence_length=self.sequence_lengths
+            )
+
+            # correct_prediction
+            correct_prediction = tf.equal(
+                tf.reshape(decode_tags,[-1]),
+                tf.reshape(self.y_p, [-1])
+            )
+            print("correct_prediction.shape:", correct_prediction.shape)
+
+            # accracy
+            self.accuracy = tf.reduce_mean(
+                input_tensor=tf.cast(x=correct_prediction, dtype=tf.float32),
+                name="accuracy"
+            )
+
             #optimizer
             self.optimizer=tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
-
             self.init_op=tf.global_variables_initializer()
 
 
