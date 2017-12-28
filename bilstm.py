@@ -85,8 +85,8 @@ class BiLSTM():
                 initial_value=tf.random_normal(shape=(self.class_num,)),
                 name="bias"
             )
-            logits=tf.matmul(h,w)+b     #shape of logits:
-            print("logit.shape",logits.shape)[batch_size*max_time, 5]
+            logits=tf.matmul(h,w)+b     #shape of logits:[batch_size*max_time, 5]
+            print("logit.shape",logits.shape)
 
             #pred  shape of pred[batch_size*max_time, 1]
             pred=tf.cast(tf.argmax(logits, 1), tf.int32,name="pred")
@@ -185,9 +185,9 @@ class BiLSTM():
 
                 graph = tf.get_default_graph()
                 # get opration from the graph
-                pred = graph.get_operation_by_name("pred").outputs[0]
+                pred_normal = graph.get_operation_by_name("pred_normal").outputs[0]
                 X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
-                pred = sess.run(fetches=pred, feed_dict={X_p: X})
+                pred = sess.run(fetches=pred_normal, feed_dict={X_p: X})
                 #compute time
                 duration=round((time.time()-start_time)/60,2)
                 print("this operation spends ",duration," mins")

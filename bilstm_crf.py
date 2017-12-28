@@ -23,6 +23,7 @@ class BiLSTM_CRF():
         self.vocab_size=parameter.VOCAB_SIZE
         self.batch_size=parameter.BATCH_SIZE
 
+
     def fit(self,X_train,y_train,X_validation,y_validation,name,print_log=True):
         #---------------------------------------forward computation--------------------------------------------#
         #---------------------------------------define graph---------------------------------------------#
@@ -38,6 +39,13 @@ class BiLSTM_CRF():
                     shape=(None,self.max_sentence_size),
                     name="label_placeholder"
             )
+            #crf 格式要求
+            self.sequence_lengths=tf.placeholder(
+                    dtype=tf.int32,
+                    shape=(None,),
+                    name="sequence_lengths"
+            )
+
 
             #embeddings
             embeddings=tf.Variable(
@@ -86,8 +94,8 @@ class BiLSTM_CRF():
                 initial_value=tf.random_normal(shape=(self.class_num,)),
                 name="bias"
             )
-            logits=tf.matmul(h,w)+b     #shape of logits:
-            print("logit.shape",logits.shape)[batch_size*max_time, 5]
+            logits=tf.matmul(h,w)+b     #shape of logits:[batch_size*max_time, 5]
+            print("logit.shape",logits.shape)
 
             #pred  shape of pred[batch_size*max_time, 1]
             pred=tf.cast(tf.argmax(logits, 1), tf.int32,name="pred")
@@ -105,7 +113,12 @@ class BiLSTM_CRF():
             self.accuracy=tf.reduce_mean(input_tensor=tf.cast(x=correct_prediction,dtype=tf.float32),name="accuracy")
 
             #loss
-            self.loss=tf.losses.sparse_softmax_cross_entropy(labels=tf.reshape(self.y_p,shape=[-1]),logits=logits)
+            log_likelihood,transition_params=crf.crf_log_likelihood(
+                    inputs=tf.reshape(tensor=logits,shape=[-1,self.max_sentence_size,self.class_num]),
+                    tag_indices=self.y_p,
+                    sequence_lengths=self.sequence_lengths
+            )
+            self.loss = tf.reduce_mean(-log_likelihood)
 
             #optimizer
             self.optimizer=tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
@@ -133,9 +146,10 @@ class BiLSTM_CRF():
                     _, train_loss, train_accuracy = sess.run(
                         fetches=[self.optimizer, self.loss, self.accuracy],
                         feed_dict={
-                                    self.X_p: X_train[i * self.batch_size:(i + 1) * self.batch_size],
-                                    self.y_p: y_train[i * self.batch_size:(i + 1) * self.batch_size]
-                                }
+                            self.X_p: X_train[i * self.batch_size:(i + 1) * self.batch_size],
+                            self.y_p: y_train[i * self.batch_size:(i + 1) * self.batch_size],
+                            self.sequence_lengths: np.full(shape=(self.batch_size,), fill_value=self.max_sentence_size)
+                        }
                     )
 
                     # print training infomation
@@ -154,8 +168,9 @@ class BiLSTM_CRF():
                 validation_loss, validation_accuracy = sess.run(
                     fetches=[self.loss, self.accuracy],
                     feed_dict={
-                                self.X_p: X_validation,
-                                self.y_p: y_validation
+                            self.X_p: X_validation,
+                            self.y_p: y_validation,
+                            self.sequence_lengths:np.full(shape=(X_validation.shape[0],),fill_value=self.max_sentence_size)
                     }
                 )
 
@@ -178,7 +193,6 @@ class BiLSTM_CRF():
     def pred(self,name,X,y=None,):
         start_time = time.time()
         if y is None:
-
             with self.session as sess:
                 # restore model
                 new_saver = tf.train.import_meta_graph("./models/"+name+"/my-model-10000.meta", clear_devices=True)
@@ -186,9 +200,13 @@ class BiLSTM_CRF():
 
                 graph = tf.get_default_graph()
                 # get opration from the graph
-                pred = graph.get_operation_by_name("pred").outputs[0]
+                pred_normal = graph.get_operation_by_name("pred_normal").outputs[0]
                 X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
-                pred = sess.run(fetches=pred, feed_dict={X_p: X})
+                sequence_lengths=graph.get_operation_by_name("sequence_lengths").outputs[0]
+                pred = sess.run(
+                    fetches=pred_normal,
+                    feed_dict={X_p: X,sequence_lengths:np.full(shape=(X.shape[0],),fill_value=self.max_sentence_size)}
+                )
                 #compute time
                 duration=round((time.time()-start_time)/60,2)
                 print("this operation spends ",duration," mins")
@@ -203,8 +221,12 @@ class BiLSTM_CRF():
                 accuracy=graph.get_operation_by_name("accuracy").outputs[0]
                 X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
                 y_p=graph.get_operation_by_name("label_placeholder").outputs[0]
+                sequence_lengths = graph.get_operation_by_name("sequence_lengths").outputs[0]
 
-                accu = sess.run(fetches=accuracy,feed_dict={X_p: X,y_p: y})
+                accu = sess.run(
+                    fetches=accuracy,
+                    feed_dict={X_p: X,y_p:y,sequence_lengths: np.full(shape=(X.shape[0],), fill_value=self.max_sentence_size)}
+                )
                 #compute time
                 duration = round((time.time() - start_time) / 60, 2)
                 print("this operation spends ", duration, " mins")
