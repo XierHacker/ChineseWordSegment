@@ -1,29 +1,44 @@
-import os
 import numpy as np
-import tensorflow as tf
+import pandas as pd
+from sklearn.model_selection import train_test_split
 
-value=np.array([[1,1,1],[2,2,2],[3,3,3],[4,4,4]])
-graph=tf.Graph()
-with graph.as_default():
-    embeddings=tf.Variable(initial_value=value,name="embeddings")
+'''
+value=[[1,1,1,1],[2,2,2,2],[3,3,3,3],[4,4,4,4],[5,5,5,5],[6,6,6,6],[7,7,7,7],[8,8,8,8]]
+dataset=np.array(value)
 
-    #一维ids
-    ids1=tf.Variable(initial_value=[1,2],name="ids")
-    vecs1 = tf.nn.embedding_lookup(params=embeddings, ids=ids1)
+print(dataset)
 
-    #二维ids,可以做为批处理来用
-    ids2=tf.Variable(initial_value=[[1,2],[2,1],[0,2]])
-    vecs2=tf.nn.embedding_lookup(params=embeddings,ids=ids2)
 
-    init_op=tf.global_variables_initializer()
-    init_op = tf.global_variables_initializer()
+'''
 
-with tf.Session(graph=graph) as sess:
-    sess.run(init_op)
-    embed= sess.run(embeddings)
-    vec1=sess.run(vecs1)
-    vec2=sess.run(vecs2)
-    print("embeddings:\n",embed)
-    print("vec1:\n",vec1)
-    print("vec2:\n",vec2)
+frame=pd.DataFrame(
+    data={"X":[1,2,3,4,5,6],"y":[0,1,0,1,1,1]}
+)
+print("frame\n",frame)
+
+X_train,X_test=train_test_split(frame,test_size=0.2)
+print("X_train:\n",X_train)
+print("X_test:\n",X_test)
+
+frame.to_pickle(path="./fream.pkl")
+
+frame2=pd.read_pickle(path="./fream.pkl")
+print(frame2)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

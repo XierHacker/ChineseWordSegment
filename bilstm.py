@@ -142,7 +142,7 @@ class BiLSTM():
 
                 # when we get a new best validation accuracy,we store the model
                 if best_validation_accuracy < validation_accuracy:
-                    print("we got a new best accuracy on validation set!")
+                    print("we got a new best accuracy on validation set! saving model!")
                     saver = tf.train.Saver()
                     saver.save(sess, "./models/"+name+"/my-model-10000")
                     # Generates MetaGraphDef.
@@ -159,7 +159,9 @@ class BiLSTM():
         :param name:
         :return:
         '''
+        start_time = time.time()
         if y is None:
+
             with self.session as sess:
                 # restore model
                 new_saver = tf.train.import_meta_graph("./models/"+name+"/my-model-10000.meta", clear_devices=True)
@@ -170,22 +172,26 @@ class BiLSTM():
                 pred = graph.get_operation_by_name("pred").outputs[0]
                 X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
                 pred = sess.run(fetches=pred, feed_dict={X_p: X})
-            return pred
+                #compute time
+                duration=round((time.time()-start_time)/60,2)
+                print("this operation spends ",duration," mins")
+                return pred
         else:
             with self.session as sess:
                 # restore model
                 new_saver = tf.train.import_meta_graph("./models/"+name+"/my-model-10000.meta", clear_devices=True)
                 new_saver.restore(sess, "./models/"+name+"/my-model-10000")
-
                 graph = tf.get_default_graph()
-
                 # get opration from the graph
                 accuracy=graph.get_operation_by_name("accuracy").outputs[0]
                 X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
                 y_p=graph.get_operation_by_name("label_placeholder").outputs[0]
 
                 accu = sess.run(fetches=accuracy,feed_dict={X_p: X,y_p: y})
-            return accu
+                #compute time
+                duration = round((time.time() - start_time) / 60, 2)
+                print("this operation spends ", duration, " mins")
+                return accu
 
 
 
