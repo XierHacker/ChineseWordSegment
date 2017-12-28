@@ -14,7 +14,7 @@ LAYER_NUM=2                         #lstm层数2
 HIDDEN_UNITS_NUM=128                #隐藏层结点数量
 CLASS_NUM=5                         #类别数量
 VOCAB_SIZE=5159                     # 样本中不同字的个数+1(padding 0)，根据处理数据的时候得到
-BATCH_SIZE=256                      #batch大小
+BATCH_SIZE=1024                      #batch大小
 
 
 max_max_epoch = 10

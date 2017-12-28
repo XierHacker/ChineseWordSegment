@@ -1,9 +1,11 @@
 Chinese word segment use Bi-LSTM and CRF 
 
 #### requirements:
->tensorflow-gpu>=1.4
+>**tensorflow-gpu>=1.4**
 
->pandas
+>**pandas**
 
->numpy
+>**numpy**
+
+>**scikit-learn**
 

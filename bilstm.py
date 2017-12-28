@@ -22,7 +22,7 @@ class BiLSTM():
         self.vocab_size=parameter.VOCAB_SIZE
         self.batch_size=parameter.BATCH_SIZE
 
-    def fit(self,X_train,y_train,X_validation,y_validation,print_log=True,name=None):
+    def fit(self,X_train,y_train,X_validation,y_validation,name,print_log=True):
         #---------------------------------------forward computation--------------------------------------------#
         #---------------------------------------define graph---------------------------------------------#
         with self.graph.as_default():
@@ -78,7 +78,7 @@ class BiLSTM():
             print("correct_prediction.shape:",correct_prediction.shape)
 
             #accracy
-            self.accuracy=tf.reduce_mean(input_tensor=tf.cast(x=correct_prediction,dtype=tf.float32))
+            self.accuracy=tf.reduce_mean(input_tensor=tf.cast(x=correct_prediction,dtype=tf.float32),name="accuracy")
 
             #loss
             self.loss=tf.losses.sparse_softmax_cross_entropy(labels=tf.reshape(self.y_p,shape=[-1]),logits=pred_2)
@@ -91,6 +91,7 @@ class BiLSTM():
         #------------------------------------Session-----------------------------------------
         with self.session as sess:
             sess.run(self.init_op)          #initialize all variables
+            best_validation_accuracy=0
 
             train_Size = X_train.shape[0]
             validation_Size = X_validation.shape[0]
@@ -100,65 +101,92 @@ class BiLSTM():
                 start_time=time.time()      #performance evaluation
                 print("Epoch:", epoch)
                 train_losses = [];          # training loss in every mini-batch
-                validation_losses = []      # validation loss in every mini-batch
                 train_accus = [];           # training accuracy in every mini-batch
-                validation_accus = []       # validation accuracy in every mini-batch
 
                 # mini batch
                 for i in range(0, (train_Size // self.batch_size)):
-
-                    _, train_loss, train_accuracy = self.session.run(
+                    _, train_loss, train_accuracy = sess.run(
                         fetches=[self.optimizer, self.loss, self.accuracy],
                         feed_dict={
-                                self.X_p: X_train[i * self.batch_size:(i + 1) * self.batch_size],
-                                self.y_p: y_train[i * self.batch_size:(i + 1) * self.batch_size]
-                            }
-                    )
-
-                    validation_loss, validation_accuracy = self.session.run(
-                        fetches=[self.loss, self.accuracy],
-                        feed_dict={
-                                self.X_p: X_validation,
-                                self.y_p: y_validation
-                            }
+                                    self.X_p: X_train[i * self.batch_size:(i + 1) * self.batch_size],
+                                    self.y_p: y_train[i * self.batch_size:(i + 1) * self.batch_size]
+                                }
                     )
 
                     # print training infomation
                     if (print_log):
-                        print("batch: ", i * self.batch_size, "~", (i + 1) * self.batch_size, "of epoch:", epoch)
-                        print("     training loss       :   ", train_loss)
-                        print("     validation loss     :   ", validation_loss)
-                        print("     train accuracy      :   ", train_accuracy)
-                        print("     validation accuracy :   ", validation_accuracy)
-                        print("\n")
+                        print("Mini-Batch: ", i * self.batch_size, "~", (i + 1) * self.batch_size, "of epoch:", epoch)
+                        print("     training loss   :  ", train_loss)
+                        print("     train accuracy  :  ", train_accuracy)
+                        print()
 
                     # add to list
                     train_losses.append(train_loss)
-                    validation_losses.append(validation_loss)
                     train_accus.append(train_accuracy)
-                    validation_accus.append(validation_accuracy)
-                duration=round((time.time()-start_time)/60,2)
+
+                duration=round((time.time()-start_time)/60,2)   #spend time in an epoch
+
+                validation_loss, validation_accuracy = sess.run(
+                    fetches=[self.loss, self.accuracy],
+                    feed_dict={
+                                self.X_p: X_validation,
+                                self.y_p: y_validation
+                    }
+                )
+
                 print("Epoch ",epoch," finished.","spend ",duration," mins")
-                print("     average training loss        :   ", sum(train_losses) / len(train_losses))
-                print("     average validation loss      :   ", sum(validation_losses) / len(validation_losses))
-                print("     average training accuracy    :   ", sum(train_accus) / len(train_accus))
-                print("     average validation accuracy  :   ", sum(validation_accus) / len(validation_accus))
+                print("----average training loss        : ", sum(train_losses) / len(train_losses))
+                print("----average training accuracy    : ", sum(train_accus) / len(train_accus))
+                print("----average validation loss      : ", validation_loss)
+                print("----average validation accuracy  : ", validation_accuracy)
 
-                '''
                 # when we get a new best validation accuracy,we store the model
-                if best_validation_accus < ave_validation_accuracy:
+                if best_validation_accuracy < validation_accuracy:
                     print("we got a new best accuracy on validation set!")
-                    # Creates a saver. and we only keep the best model
                     saver = tf.train.Saver()
-                    saver.save(sess, './model/my-model-10000')
+                    saver.save(sess, "./models/"+name+"/my-model-10000")
                     # Generates MetaGraphDef.
-                    saver.export_meta_graph('./model/my-model-10000.meta')
-
-                '''
+                    saver.export_meta_graph("./models/"+name+"/my-model-10000.meta")
 
 
-    def pred(self,X,y=None):
-        pass
+    def pred(self,name,X,y=None,):
+        '''
+        返回预测的结果或者准确率
+            y not None的时候返回准确率
+            y ==None的时候返回预测值
+        :param X:
+        :param y:
+        :param name:
+        :return:
+        '''
+        if y is None:
+            with self.session as sess:
+                # restore model
+                new_saver = tf.train.import_meta_graph("./models/"+name+"/my-model-10000.meta", clear_devices=True)
+                new_saver.restore(sess, "./models/"+name+"/my-model-10000")
+
+                graph = tf.get_default_graph()
+                # get opration from the graph
+                pred = graph.get_operation_by_name("pred").outputs[0]
+                X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
+                pred = sess.run(fetches=pred, feed_dict={X_p: X})
+            return pred
+        else:
+            with self.session as sess:
+                # restore model
+                new_saver = tf.train.import_meta_graph("./models/"+name+"/my-model-10000.meta", clear_devices=True)
+                new_saver.restore(sess, "./models/"+name+"/my-model-10000")
+
+                graph = tf.get_default_graph()
+
+                # get opration from the graph
+                accuracy=graph.get_operation_by_name("accuracy").outputs[0]
+                X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
+                y_p=graph.get_operation_by_name("label_placeholder").outputs[0]
+
+                accu = sess.run(fetches=accuracy,feed_dict={X_p: X,y_p: y})
+            return accu
+
 
 
 if __name__ =="__main__":
