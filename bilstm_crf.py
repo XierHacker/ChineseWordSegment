@@ -251,31 +251,30 @@ class BiLSTM_CRF():
                 return viterbi_sequences
         else:
             with self.session as sess:
-                viterbi_sequences = []
-                # viterbi_scores=[]
                 # crf need
-                sequence_lengths = np.full(shape=(X.shape[0],), fill_value=self.max_sentence_size)
-
+                sequence_length = np.full(shape=(X.shape[0],), fill_value=self.max_sentence_size)
                 # restore model
                 new_saver = tf.train.import_meta_graph(
                     meta_graph_or_file="./models/" + name + "/bilstm_crf/my-model-10000.meta",
                     clear_devices=True
                 )
                 new_saver.restore(sess, "./models/" + name + "/bilstm_crf/my-model-10000")
+
                 # get default graph
                 graph = tf.get_default_graph()
                 # get opration from the graph
                 X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
-                logits_normal = graph.get_operation_by_name("logits_normal").outputs[0]
-                trans_matrix = graph.get_operation_by_name("trans_matrix").outputs[0]
+                y_p=graph.get_operation_by_name("label_placeholder").outputs[0]
+                accuracy=graph.get_operation_by_name("accuracy").outputs[0]
+                sequence_lengths=graph.get_operation_by_name("sequence_lengths").outputs[0]
+                accu=sess.run(
+                    fetches=accuracy,
+                    feed_dict={X_p: X,y_p:y,sequence_lengths:sequence_length}
+                )
+                return accu
+            
 
-                logits, trans = sess.run(fetches=[logits_normal, trans_matrix], feed_dict={X_p: X})
-                for i in range(X.shape[0]):
-                    viterbi_sequence, viterbi_score = crf.viterbi_decode(score=logits[i], transition_params=trans)
-                    viterbi_sequences.append(viterbi_sequence)
-                    # viterbi_scores.append(viterbi_score)
-                viterbi_sequences=np.array(viterbi_sequences)
-                accuracy=accuracy_score(y_true=np.reshape(y,[-1]),y_pred=np.reshape(viterbi_sequences,[-1]))
-                print("this operation spends ", round((time.time() - start_time) / 60, 2), " mins")
-                return accuracy
+
+
+
 
