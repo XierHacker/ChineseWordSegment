@@ -97,25 +97,30 @@ class BiLSTM():
                 initial_value=tf.random_normal(shape=(self.class_num,)),
                 name="bias"
             )
-            logits=tf.matmul(h,w)+b             #shape of logits:[batch_size*max_time, 5]
+            logits=tf.matmul(h,w)+b          #shape of logits:[batch_size*max_time, 5]
 
             #prediction
-            pred=tf.cast(tf.argmax(logits, 1), tf.int32,name="pred")      #shape of pred[batch_size*max_time, 1]
+            # shape of pred[batch_size*max_time, 1]
+            pred=tf.cast(tf.argmax(logits, 1), tf.int32,name="pred")
+            # pred in an normal way,shape is [batch_size, max_time]
             pred_normal=tf.reshape(
                 tensor=pred,
                 shape=(-1,self.max_sentence_size),
                 name="pred_normal"
-            )                                   #pred in an normal way,shape is [batch_size, max_time]
+            )
 
             #correct_prediction
             correct_prediction = tf.equal(pred, tf.reshape(self.y_p, [-1]))
-
             #accracy
-            self.accuracy=tf.reduce_mean(input_tensor=tf.cast(x=correct_prediction,dtype=tf.float32),name="accuracy")
-
+            self.accuracy=tf.reduce_mean(
+                input_tensor=tf.cast(x=correct_prediction,dtype=tf.float32),
+                name="accuracy"
+            )
             #loss
-            self.loss=tf.losses.sparse_softmax_cross_entropy(labels=tf.reshape(self.y_p,shape=[-1]),logits=logits)
-
+            self.loss=tf.losses.sparse_softmax_cross_entropy(
+                labels=tf.reshape(self.y_p,shape=[-1]),
+                logits=logits
+            )
             #optimizer
             self.optimizer=tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
@@ -138,9 +143,9 @@ class BiLSTM():
                     _, train_loss, train_accuracy = sess.run(
                         fetches=[self.optimizer, self.loss, self.accuracy],
                         feed_dict={
-                                    self.X_p: X_train[i * self.batch_size:(i + 1) * self.batch_size],
-                                    self.y_p: y_train[i * self.batch_size:(i + 1) * self.batch_size]
-                                }
+                            self.X_p: X_train[i * self.batch_size:(i + 1) * self.batch_size],
+                            self.y_p: y_train[i * self.batch_size:(i + 1) * self.batch_size]
+                        }
                     )
                     # print training infomation
                     if (print_log):

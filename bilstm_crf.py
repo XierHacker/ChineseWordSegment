@@ -3,6 +3,7 @@ import tensorflow as tf
 import tensorflow.contrib.rnn as rnn
 import tensorflow.contrib.crf as crf
 import time
+import os
 import parameter
 from sklearn.metrics import accuracy_score
 
@@ -237,7 +238,7 @@ class BiLSTM_CRF():
                 graph = tf.get_default_graph()
                 # get opration from the graph
                 X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
-                ligits_normal=graph.get_operation_by_name("logits_normal").outputs[0]
+                logits_normal=graph.get_operation_by_name("logits_normal").outputs[0]
                 trans_matrix=graph.get_operation_by_name("trans_matrix").outputs[0]
 
                 logits,trans = sess.run(fetches=[logits_normal,trans_matrix],feed_dict={X_p: X})
@@ -265,7 +266,7 @@ class BiLSTM_CRF():
                 graph = tf.get_default_graph()
                 # get opration from the graph
                 X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
-                ligits_normal = graph.get_operation_by_name("logits_normal").outputs[0]
+                logits_normal = graph.get_operation_by_name("logits_normal").outputs[0]
                 trans_matrix = graph.get_operation_by_name("trans_matrix").outputs[0]
 
                 logits, trans = sess.run(fetches=[logits_normal, trans_matrix], feed_dict={X_p: X})
