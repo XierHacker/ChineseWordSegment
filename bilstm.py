@@ -70,11 +70,9 @@ class BiLSTM():
             #concat togeter(forward information and backward information)
             # shape of h is [batch_size, max_time, cell_fw.output_size*2]
             h=tf.concat(values=[outputs_forward,outputs_backward],axis=2,name="h")
-            print("h.shape:",h.shape)
 
             #reshape,new shape is [batch_size*max_time, cell_fw.output_size*2]
             h=tf.reshape(tensor=h,shape=[-1,2*self.hidden_units_num2],name="h_reshaped")
-            print("h.shape",h.shape)
 
             #fully connect layer
             w=tf.Variable(
@@ -85,20 +83,18 @@ class BiLSTM():
                 initial_value=tf.random_normal(shape=(self.class_num,)),
                 name="bias"
             )
-            logits=tf.matmul(h,w)+b     #shape of logits:[batch_size*max_time, 5]
-            print("logit.shape",logits.shape)
+            logits=tf.matmul(h,w)+b             #shape of logits:[batch_size*max_time, 5]
 
-            #pred  shape of pred[batch_size*max_time, 1]
-            pred=tf.cast(tf.argmax(logits, 1), tf.int32,name="pred")
-            print("pred.shape",pred.shape)
-
-            #pred in an normal way,shape is [batch_size, max_time]
-            pred_normal=tf.reshape(tensor=pred,shape=(-1,self.max_sentence_size),name="pred_normal")
-            print("pred_normal.shape",pred_normal.shape)
+            #prediction
+            pred=tf.cast(tf.argmax(logits, 1), tf.int32,name="pred")      #shape of pred[batch_size*max_time, 1]
+            pred_normal=tf.reshape(
+                tensor=pred,
+                shape=(-1,self.max_sentence_size),
+                name="pred_normal"
+            )                                   #pred in an normal way,shape is [batch_size, max_time]
 
             #correct_prediction
             correct_prediction = tf.equal(pred, tf.reshape(self.y_p, [-1]))
-            print("correct_prediction.shape:",correct_prediction.shape)
 
             #accracy
             self.accuracy=tf.reduce_mean(input_tensor=tf.cast(x=correct_prediction,dtype=tf.float32),name="accuracy")
@@ -114,19 +110,17 @@ class BiLSTM():
 
         #------------------------------------Session-----------------------------------------
         with self.session as sess:
-            sess.run(self.init_op)          #initialize all variables
-            best_validation_accuracy=0
-
-            train_Size = X_train.shape[0]
-            validation_Size = X_validation.shape[0]
-
             print("Training Start")
-            for epoch in range(1,self.max_epoch+1):
-                start_time=time.time()      #performance evaluation
-                print("Epoch:", epoch)
-                train_losses = [];          # training loss in every mini-batch
-                train_accus = [];           # training accuracy in every mini-batch
+            sess.run(self.init_op)          #initialize all variables
 
+            train_Size = X_train.shape[0];
+            validation_Size = X_validation.shape[0]
+            best_validation_accuracy = 0        #best validation accuracy in training process
+
+            for epoch in range(1,self.max_epoch+1):
+                print("Epoch:", epoch)
+                start_time=time.time()      #time evaluation
+                train_losses = [];  train_accus = []       # training loss/accuracy in every mini-batch
                 # mini batch
                 for i in range(0, (train_Size // self.batch_size)):
                     _, train_loss, train_accuracy = sess.run(
@@ -139,30 +133,19 @@ class BiLSTM():
 
                     # print training infomation
                     if (print_log):
-                        print("Mini-Batch: ", i * self.batch_size, "~", (i + 1) * self.batch_size, "of epoch:", epoch)
-                        print("     training loss   :  ", train_loss)
-                        print("     train accuracy  :  ", train_accuracy)
-                        print()
+                        self.showInfo(print_log,train_loss,train_accuracy)
 
                     # add to list
                     train_losses.append(train_loss)
                     train_accus.append(train_accuracy)
-
-                duration=round((time.time()-start_time)/60,2)   #spend time in an epoch
-
+                duration=round((time.time()-start_time)/60,2)       #spend time in an epoch
                 validation_loss, validation_accuracy = sess.run(
                     fetches=[self.loss, self.accuracy],
-                    feed_dict={
-                                self.X_p: X_validation,
-                                self.y_p: y_validation
-                    }
+                    feed_dict={self.X_p: X_validation,self.y_p: y_validation}
                 )
 
                 print("Epoch ",epoch," finished.","spend ",duration," mins")
-                print("----average training loss        : ", sum(train_losses) / len(train_losses))
-                print("----average training accuracy    : ", sum(train_accus) / len(train_accus))
-                print("----average validation loss      : ", validation_loss)
-                print("----average validation accuracy  : ", validation_accuracy)
+                self.showInfo(False, validation_loss, validation_accuracy, train_losses, train_accus)
 
                 # when we get a new best validation accuracy,we store the model
                 if best_validation_accuracy < validation_accuracy:
@@ -173,11 +156,22 @@ class BiLSTM():
                     saver.export_meta_graph("./models/"+name+"/my-model-10000.meta")
 
 
+    def showInfo(self,print_log=False,loss=None,accuracy=None,train_losses=None,train_accus=None):
+        if print_log:
+            print("----training loss  : ", loss)
+            print("----train accuracy : ", accuracy)
+            print()
+        else:
+            print("----average training loss        : ", sum(train_losses) / len(train_losses))
+            print("----average training accuracy    : ", sum(train_accus) / len(train_accus))
+            print("----average validation loss      : ", loss)
+            print("----average validation accuracy  : ", accuracy)
+
+
     #返回预测的结果或者准确率,y not None的时候返回准确率,y ==None的时候返回预测值
     def pred(self,name,X,y=None,):
         start_time = time.time()
         if y is None:
-
             with self.session as sess:
                 # restore model
                 new_saver = tf.train.import_meta_graph("./models/"+name+"/my-model-10000.meta", clear_devices=True)
@@ -209,9 +203,8 @@ class BiLSTM():
                 print("this operation spends ", duration, " mins")
                 return accu
 
+    #把一个句子转成一个分词后的结构
+    def infer(self,sentence,name):
+        pass
 
-if __name__ =="__main__":
-    bilstm=BiLSTM()
-    x=[1,2,3,4,5]
-    y=[1,2,3]
-    bilstm.fit()
+

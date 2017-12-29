@@ -46,7 +46,6 @@ class BiLSTM_CRF():
                     name="sequence_lengths"
             )
 
-
             #embeddings
             embeddings=tf.Variable(
                 initial_value=tf.zeros(shape=(self.vocab_size,self.embedding_size),dtype=tf.float32),
@@ -73,17 +72,15 @@ class BiLSTM_CRF():
                 inputs=inputs,
                 dtype=tf.float32
             )
-            outputs_forward = outputs[0];   #shape of h is [batch_size, max_time, cell_fw.output_size]
-            outputs_backward = outputs[1]   #shape of h is [batch_size, max_time, cell_bw.output_size]
+            # shape of outputs_forward is [batch_size, max_time, cell_fw.output_size]
+            outputs_forward = outputs[0]; outputs_backward = outputs[1]
 
             #concat togeter(forward information and backward information)
             # shape of h is [batch_size, max_time, cell_fw.output_size*2]
             h=tf.concat(values=[outputs_forward,outputs_backward],axis=2,name="h")
-            #print("h.shape:",h.shape)
 
             #reshape,new shape is [batch_size*max_time, cell_fw.output_size*2]
             h=tf.reshape(tensor=h,shape=[-1,2*self.hidden_units_num2],name="h_reshaped")
-            #print("h.shape",h.shape)
 
             #fully connect layer
             w=tf.Variable(
@@ -95,16 +92,11 @@ class BiLSTM_CRF():
                 name="bias"
             )
             logits=tf.matmul(h,w)+b     #shape of logits:[batch_size*max_time, 5]
-            #print("logit.shape",logits.shape)
-
-
-            #change logits to the shape of [batch_size,max_sentence_size,5]
             logits_normal=tf.reshape(
                     tensor=logits,
                     shape=(-1,self.max_sentence_size,self.class_num),
                     name="logits_normal"
-            )
-            #print("logits_normal:",logits_normal.shape)
+            )                           #change logits to the shape of [batch_size,max_sentence_size,5]
 
             #loss
             log_likelihood,transition_params=crf.crf_log_likelihood(
@@ -113,10 +105,11 @@ class BiLSTM_CRF():
                 sequence_lengths=self.sequence_lengths
             )
             self.trans_matrix=tf.Variable(initial_value=transition_params,name="trans_matrix")
-            self.loss = tf.reduce_mean(-log_likelihood)
+            self.loss = tf.reduce_mean(-log_likelihood,name="loss")
 
-            #decode,shape of potentials=[batch_size, max_seq_len, num_tags]
-            #shape of decode_tags is [batch_size, max_seq_len]
+            # decode
+            # shape of potentials=[batch_size, max_seq_len, num_tags]
+            # shape of decode_tags is [batch_size, max_seq_len]
             decode_tags,best_score=crf.crf_decode(
                 potentials=logits_normal,
                 transition_params=transition_params,
@@ -124,13 +117,9 @@ class BiLSTM_CRF():
             )
 
             # correct_prediction
-            correct_prediction = tf.equal(
-                tf.reshape(decode_tags,[-1]),
-                tf.reshape(self.y_p, [-1])
-            )
-            #print("correct_prediction.shape:", correct_prediction.shape)
+            correct_prediction = tf.equal(tf.reshape(decode_tags,[-1]),tf.reshape(self.y_p, [-1]))
 
-            # accracy
+            # accuracy
             self.accuracy = tf.reduce_mean(
                 input_tensor=tf.cast(x=correct_prediction, dtype=tf.float32),
                 name="accuracy"
@@ -138,23 +127,27 @@ class BiLSTM_CRF():
 
             #optimizer
             self.optimizer=tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
+
             self.init_op=tf.global_variables_initializer()
 
 
         #------------------------------------Session-----------------------------------------
         with self.session as sess:
-            sess.run(self.init_op)          #initialize all variables
-            best_validation_accuracy=0
+            print("Training Start")
+            sess.run(self.init_op)                      #initialize all variables
 
             train_Size = X_train.shape[0]
             validation_Size = X_validation.shape[0]
+            best_validation_accuracy = 0
 
-            print("Training Start")
+            #crf函数用到
+            sequence_length_train =np.full(shape=(self.batch_size,),fill_value=self.max_sentence_size)
+            sequence_length_valid = np.full(shape=(X_validation.shape[0],), fill_value=self.max_sentence_size)
+
             for epoch in range(1,self.max_epoch+1):
-                start_time=time.time()      #performance evaluation
                 print("Epoch:", epoch)
-                train_losses = [];          # training loss in every mini-batch
-                train_accus = [];           # training accuracy in every mini-batch
+                start_time=time.time()                  #time evaluation
+                train_losses = [];  train_accus = []    # training loss/accuracy in every mini-batch
 
                 # mini batch
                 for i in range(0, (train_Size // self.batch_size)):
@@ -163,37 +156,29 @@ class BiLSTM_CRF():
                         feed_dict={
                             self.X_p: X_train[i * self.batch_size:(i + 1) * self.batch_size],
                             self.y_p: y_train[i * self.batch_size:(i + 1) * self.batch_size],
-                            self.sequence_lengths: np.full(shape=(self.batch_size,), fill_value=self.max_sentence_size)
+                            self.sequence_lengths: sequence_length_train
                         }
                     )
-
-                    # print training infomation
-                    if (print_log):
-                        print("Mini-Batch: ", i * self.batch_size, "~", (i + 1) * self.batch_size, "of epoch:", epoch)
-                        print("     training loss   :  ", train_loss)
-                        print("     train accuracy  :  ", train_accuracy)
-                        print()
-
                     # add to list
                     train_losses.append(train_loss)
                     train_accus.append(train_accuracy)
 
-                duration=round((time.time()-start_time)/60,2)   #spend time in an epoch
+                    # print training infomation
+                    if (print_log):
+                        self.showInfo(print_log,loss=train_loss,accuracy=train_accuracy)
 
+                duration=round((time.time()-start_time)/60,2)   #spend time in an epoch
                 validation_loss, validation_accuracy = sess.run(
                     fetches=[self.loss, self.accuracy],
                     feed_dict={
                             self.X_p: X_validation,
                             self.y_p: y_validation,
-                            self.sequence_lengths:np.full(shape=(X_validation.shape[0],),fill_value=self.max_sentence_size)
+                            self.sequence_lengths:sequence_length_valid
                     }
                 )
-
+                #show train and validation info
                 print("Epoch ",epoch," finished.","spend ",duration," mins")
-                print("----average training loss        : ", sum(train_losses) / len(train_losses))
-                print("----average training accuracy    : ", sum(train_accus) / len(train_accus))
-                print("----average validation loss      : ", validation_loss)
-                print("----average validation accuracy  : ", validation_accuracy)
+                self.showInfo(False, validation_loss, validation_accuracy, train_losses, train_accus)
 
                 # when we get a new best validation accuracy,we store the model
                 if best_validation_accuracy < validation_accuracy:
@@ -202,6 +187,20 @@ class BiLSTM_CRF():
                     saver.save(sess, "./models/"+name+"/my-model-10000")
                     # Generates MetaGraphDef.
                     saver.export_meta_graph("./models/"+name+"/my-model-10000.meta")
+
+
+    #display loss and accuracy information
+    def showInfo(self,print_log=False,loss=None,accuracy=None,train_losses=None,train_accus=None):
+        if print_log:
+            print("----training loss  : ", loss)
+            print("----train accuracy : ", accuracy)
+            print()
+        else:
+            print("----average training loss        : ", sum(train_losses) / len(train_losses))
+            print("----average training accuracy    : ", sum(train_accus) / len(train_accus))
+            print("----average validation loss      : ", loss)
+            print("----average validation accuracy  : ", accuracy)
+
 
 
     #返回预测的结果或者准确率,y not None的时候返回准确率,y ==None的时候返回预测值
@@ -254,10 +253,3 @@ class BiLSTM_CRF():
                 duration = round((time.time() - start_time) / 60, 2)
                 print("this operation spends ", duration, " mins")
                 return accu
-
-
-if __name__ =="__main__":
-    bilstm=BiLSTM()
-    x=[1,2,3,4,5]
-    y=[1,2,3]
-    bilstm.fit()
