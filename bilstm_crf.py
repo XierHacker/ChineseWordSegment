@@ -4,6 +4,7 @@ import tensorflow.contrib.rnn as rnn
 import tensorflow.contrib.crf as crf
 import time
 import parameter
+from sklearn.metrics import accuracy_score
 
 class BiLSTM_CRF():
     def __init__(self):
@@ -141,8 +142,14 @@ class BiLSTM_CRF():
             best_validation_accuracy = 0
 
             #crf函数用到
-            sequence_length_train =np.full(shape=(self.batch_size,),fill_value=self.max_sentence_size)
-            sequence_length_valid = np.full(shape=(X_validation.shape[0],), fill_value=self.max_sentence_size)
+            sequence_length_train =np.full(
+                shape=(self.batch_size,),
+                fill_value=self.max_sentence_size
+            )
+            sequence_length_valid = np.full(
+                shape=(X_validation.shape[0],),
+                fill_value=self.max_sentence_size
+            )
 
             for epoch in range(1,self.max_epoch+1):
                 print("Epoch:", epoch)
@@ -182,11 +189,20 @@ class BiLSTM_CRF():
 
                 # when we get a new best validation accuracy,we store the model
                 if best_validation_accuracy < validation_accuracy:
-                    print("we got a new best accuracy on validation set! saving model!")
+                    print("New Best Accuracy ", validation_accuracy, " On Validation set! ")
+                    print("Saving Models......")
+                    # exist ./models folder?
+                    if not os.path.exists("./models/"):
+                        os.mkdir(path="./models/")
+                    if not os.path.exists("./models/" + name):
+                        os.mkdir(path="./models/" + name)
+                    if not os.path.exists("./models/" + name + "/bilstm_crf"):
+                        os.mkdir(path="./models/" + name + "/bilstm_crf")
+                    # create saver
                     saver = tf.train.Saver()
-                    saver.save(sess, "./models/"+name+"/my-model-10000")
+                    saver.save(sess, "./models/" + name + "/bilstm_crf/my-model-10000")
                     # Generates MetaGraphDef.
-                    saver.export_meta_graph("./models/"+name+"/my-model-10000.meta")
+                    saver.export_meta_graph("./models/" + name + "/bilstm_crf/my-model-10000.meta")
 
 
     #display loss and accuracy information
@@ -201,55 +217,64 @@ class BiLSTM_CRF():
             print("----average validation loss      : ", loss)
             print("----average validation accuracy  : ", accuracy)
 
-
-
     #返回预测的结果或者准确率,y not None的时候返回准确率,y ==None的时候返回预测值
     def pred(self,name,X,y=None,):
         start_time = time.time()
         if y is None:
             with self.session as sess:
                 viterbi_sequences=[]
-                viterbi_scores=[]
-                # restore model
-                new_saver = tf.train.import_meta_graph("./models/"+name+"/my-model-10000.meta", clear_devices=True)
-                new_saver.restore(sess, "./models/"+name+"/my-model-10000")
-                graph = tf.get_default_graph()      #get graph
+                #viterbi_scores=[]
+                #crf need
+                sequence_lengths = np.full(shape=(X.shape[0],), fill_value=self.max_sentence_size)
 
+                # restore model
+                new_saver = tf.train.import_meta_graph(
+                    meta_graph_or_file="./models/" + name + "/bilstm_crf/my-model-10000.meta",
+                    clear_devices=True
+                )
+                new_saver.restore(sess, "./models/" + name + "/bilstm_crf/my-model-10000")
+                # get default graph
+                graph = tf.get_default_graph()
                 # get opration from the graph
                 X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
                 ligits_normal=graph.get_operation_by_name("logits_normal").outputs[0]
                 trans_matrix=graph.get_operation_by_name("trans_matrix").outputs[0]
 
-                sequence_lengths = np.full(shape=(X.shape[0],), fill_value=self.max_sentence_size)
                 logits,trans = sess.run(fetches=[logits_normal,trans_matrix],feed_dict={X_p: X})
 
                 for i in range(X.shape[0]):
                     viterbi_sequence,viterbi_score=crf.viterbi_decode(score=logits[i],transition_params=trans)
                     viterbi_sequences.append(viterbi_sequence)
-                    viterbi_scores.append(viterbi_score)
-
-                #compute time
-                duration=round((time.time()-start_time)/60,2)
-                print("this operation spends ",duration," mins")
-                return viterbi_sequences, viterbi_scores
+                    #viterbi_scores.append(viterbi_score)
+                print("this operation spends ",round((time.time()-start_time)/60,2)," mins")
+                return viterbi_sequences
         else:
             with self.session as sess:
+                viterbi_sequences = []
+                # viterbi_scores=[]
+                # crf need
+                sequence_lengths = np.full(shape=(X.shape[0],), fill_value=self.max_sentence_size)
+
                 # restore model
-                new_saver = tf.train.import_meta_graph("./models/"+name+"/my-model-10000.meta", clear_devices=True)
-                new_saver.restore(sess, "./models/"+name+"/my-model-10000")
-                graph = tf.get_default_graph()
-
-                # get opration from the graph
-                accuracy=graph.get_operation_by_name("accuracy").outputs[0]
-                X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
-                y_p=graph.get_operation_by_name("label_placeholder").outputs[0]
-                sequence_lengths = graph.get_operation_by_name("sequence_lengths").outputs[0]
-
-                accu = sess.run(
-                    fetches=accuracy,
-                    feed_dict={X_p: X,y_p:y,sequence_lengths: np.full(shape=(X.shape[0],), fill_value=self.max_sentence_size)}
+                new_saver = tf.train.import_meta_graph(
+                    meta_graph_or_file="./models/" + name + "/bilstm_crf/my-model-10000.meta",
+                    clear_devices=True
                 )
-                #compute time
-                duration = round((time.time() - start_time) / 60, 2)
-                print("this operation spends ", duration, " mins")
-                return accu
+                new_saver.restore(sess, "./models/" + name + "/bilstm_crf/my-model-10000")
+                # get default graph
+                graph = tf.get_default_graph()
+                # get opration from the graph
+                X_p = graph.get_operation_by_name("input_placeholder").outputs[0]
+                ligits_normal = graph.get_operation_by_name("logits_normal").outputs[0]
+                trans_matrix = graph.get_operation_by_name("trans_matrix").outputs[0]
+
+                logits, trans = sess.run(fetches=[logits_normal, trans_matrix], feed_dict={X_p: X})
+                for i in range(X.shape[0]):
+                    viterbi_sequence, viterbi_score = crf.viterbi_decode(score=logits[i], transition_params=trans)
+                    viterbi_sequences.append(viterbi_sequence)
+                    # viterbi_scores.append(viterbi_score)
+                viterbi_sequences=np.array(viterbi_sequences)
+                accuracy=accuracy_score(y_true=np.reshape(y,[-1]),y_pred=np.reshape(viterbi_sequences,[-1]))
+                print("this operation spends ", round((time.time() - start_time) / 60, 2), " mins")
+                return accuracy
+

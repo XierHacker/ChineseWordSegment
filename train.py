@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 from bilstm_crf import BiLSTM_CRF
+from bilstm import BiLSTM
 
 
 #读数据
@@ -14,5 +15,5 @@ X_validation=np.asarray(list(df_validation['X'].values))
 y_validation=np.asarray(list(df_validation['y'].values))
 
 #train model
-bilstm=BiLSTM_CRF()
+bilstm=BiLSTM()
 bilstm.fit(X_train,y_train,X_validation,y_validation,"msr")
