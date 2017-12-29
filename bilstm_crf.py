@@ -53,7 +53,7 @@ class BiLSTM_CRF():
                 initial_value=tf.zeros(shape=(self.vocab_size,self.embedding_size),dtype=tf.float32),
                 name="embeddings"
             )
-            #embeded inputs
+            #embeded inputs shape of inputs is [batch_size,max_sentence_size,embedding_dim]
             inputs=tf.nn.embedding_lookup(params=embeddings,ids=self.X_p,name="embeded_input")
 
             #bisltm
@@ -272,7 +272,7 @@ class BiLSTM_CRF():
                     feed_dict={X_p: X,y_p:y,sequence_lengths:sequence_length}
                 )
                 return accu
-            
+
 
 
 
