@@ -1,6 +1,6 @@
 '''
-    ####file that contains LSTM parameters of this model
-    ####modify this file to change LSTM parameters
+    ####file that contains CNN parameters of this model
+    ####modify this file to change CNN parameters
 '''
 
 
@@ -17,9 +17,3 @@ CLASS_NUM=5                         #类别数量
 VOCAB_SIZE=5159                     # 样本中不同字的个数+1(padding 0)，根据处理数据的时候得到
 BATCH_SIZE=1024                     #batch大小
 DROPOUT_RATE=0.5                    #dropout 比率
-
-
-
-
-
-
