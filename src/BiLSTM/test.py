@@ -18,7 +18,7 @@ batch_size=parameter.BATCH_SIZE
 max_sentence_size=parameter.MAX_SENTENCE_SIZE
 
 
-MODEL_SAVING_PATH="./saved_models/lstm.ckpt-2"
+MODEL_SAVING_PATH="./saved_models/lstm.ckpt-3"
 
 
 def test(X_valid, y_valid):
@@ -72,7 +72,9 @@ if __name__=="__main__":
     df_validation = pd.read_pickle(path="../../dataset/msr/summary_validation.pkl")
     X_validation = np.asarray(list(df_validation['X'].values))
     y_validation = np.asarray(list(df_validation['y'].values))
+    print("X_validation[0]:",X_validation[1])
+    print("y_validation[0]:",y_validation[1])
     print("Loading Done!")
 
     print("Test Start")
-    test(X_validation,y_validation)
+    #test(X_validation,y_validation)
