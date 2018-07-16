@@ -86,7 +86,7 @@ def train(X_train, y_train):
             print("average train accuracy:",sum(train_accus)/len(train_accus))
 
             print("saving model....")
-            saver.save(sess=sess, save_path=parameter.MODEL_SAVING_PATH, global_step=i)
+            saver.save(sess=sess, save_path=parameter.MODEL_SAVING_PATH, global_step=epoch)
             print("model saving done!")
 
 
@@ -94,8 +94,6 @@ if __name__=="__main__":
     # 读数据
     print("Loading Data....")
     df_train = pd.read_pickle(path="../../dataset/msr/summary_train.pkl")
-    df_validation = pd.read_pickle(path="../../dataset/msr/summary_validation.pkl")
-
     X_train = np.asarray(list(df_train['X'].values))
     y_train = np.asarray(list(df_train['y'].values))
     print("Loading Done!")

@@ -8,7 +8,6 @@ import tensorflow as tf
 import bilstm
 import parameter
 
-
 sys.path.append("../..")
 #不提示调试信息和警告信息
 os.environ["TF_CPP_MIN_LOG_LEVEL"]='2'
@@ -18,13 +17,17 @@ max_epoch = parameter.MAX_EPOCH
 batch_size=parameter.BATCH_SIZE
 max_sentence_size=parameter.MAX_SENTENCE_SIZE
 
+
+MODEL_SAVING_PATH="./saved_models/lstm.ckpt-2"
+
+
 def test(X_valid, y_valid):
     # data placeholder
     X_p = tf.placeholder(dtype=tf.int32,shape=(None, max_sentence_size),name="input_p")
     y_p = tf.placeholder(dtype=tf.int32,shape=(None, max_sentence_size),name="label_p")
 
-    # 使用regularizer控制权重
-    regularizer = tf.contrib.layers.l2_regularizer(0.0001)
+    #测试阶段就不使用regularizer了
+    regularizer = None
     model=bilstm.BiLSTM()
     logits=model.forward(X_p,regularizer)
 
@@ -40,8 +43,6 @@ def test(X_valid, y_valid):
     accuracy = tf.reduce_mean(input_tensor=tf.cast(x=correct_prediction, dtype=tf.float32),name="accuracy")
     # loss
     loss = tf.losses.sparse_softmax_cross_entropy(labels=tf.reshape(y_p, shape=[-1]),logits=logits)
-    # optimizer
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
     init_op = tf.global_variables_initializer()
 
@@ -51,40 +52,27 @@ def test(X_valid, y_valid):
     # ------------------------------------Session-----------------------------------------
     with tf.Session() as sess:
         sess.run(init_op)  # initialize all variables
-        train_size = X_train.shape[0];
-        for epoch in range(1, max_epoch + 1):
-            print("Epoch:", epoch)
-            # time evaluation
-            start_time = time.time()
-            train_losses = [];
-            train_accus = []  # training loss/accuracy in every mini-batch
-            # mini batch
-            for i in range(0, (train_size // batch_size)):
-                _, train_loss, train_accuracy = sess.run(
-                    fetches=[optimizer, loss, accuracy],
-                    feed_dict={
-                        X_p: X_train[i * batch_size:(i + 1) * batch_size],
-                        y_p: y_train[i * batch_size:(i + 1) * batch_size]
-                    }
-                )
-                # add to list
-                train_losses.append(train_loss);
-                train_accus.append(train_accuracy)
-            end_time = time.time()
-            print("spend: ", (end_time - start_time) / 60, " mins")
-            print("average train loss:",sum(train_losses)/len(train_losses))
-            print("average train accuracy:",sum(train_accus)/len(train_accus))
+        valid_size = X_valid.shape[0];
+
+        # restore
+        saver.restore(sess=sess, save_path=MODEL_SAVING_PATH)
+
+        #prediction
+        start_time = time.time()
+        valid_loss, valid_accuracy = sess.run(fetches=[loss, accuracy],feed_dict={X_p: X_valid,y_p: y_valid})
+        end_time = time.time()
+        print("spend: ", (end_time - start_time) / 60, " mins")
+        print("valid loss:", valid_loss)
+        print("vlaid accuracy:", valid_accuracy)
 
 
 if __name__=="__main__":
     # 读数据
     print("Loading Data....")
-    df_train = pd.read_pickle(path="../../dataset/msr/summary_train.pkl")
     df_validation = pd.read_pickle(path="../../dataset/msr/summary_validation.pkl")
-
-    X_train = np.asarray(list(df_train['X'].values))
-    y_train = np.asarray(list(df_train['y'].values))
+    X_validation = np.asarray(list(df_validation['X'].values))
+    y_validation = np.asarray(list(df_validation['y'].values))
     print("Loading Done!")
 
-    print("Training Start")
-    train(X_train,y_train)
+    print("Test Start")
+    test(X_validation,y_validation)
