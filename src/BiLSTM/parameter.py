@@ -19,7 +19,9 @@ BATCH_SIZE=1024                     #batch大小
 DROPOUT_RATE=0.5                    #dropout 比率
 
 
-
+MODEL_SAVING_PATH="./saved_models/lstm.ckpt"
+GRAPH_DEF_SAVING_DIR="./saved_models/"
+GRAPH_DEF_SAVING_NAME="lstm.pbtxt"
 
 
 

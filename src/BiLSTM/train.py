@@ -51,6 +51,16 @@ def train(X_train, y_train):
     # ------------------------------------Session-----------------------------------------
     with tf.Session() as sess:
         sess.run(init_op)  # initialize all variables
+
+        # sava graph def
+        print("save graph def.....")
+        tf.train.write_graph(
+            graph_or_graph_def=sess.graph_def,
+            logdir=parameter.GRAPH_DEF_SAVING_DIR,name=parameter.GRAPH_DEF_SAVING_NAME,
+            as_text=True
+        )
+        print("graph saved!")
+
         train_size = X_train.shape[0];
         for epoch in range(1, max_epoch + 1):
             print("Epoch:", epoch)
@@ -74,6 +84,10 @@ def train(X_train, y_train):
             print("spend: ", (end_time - start_time) / 60, " mins")
             print("average train loss:",sum(train_losses)/len(train_losses))
             print("average train accuracy:",sum(train_accus)/len(train_accus))
+
+            print("saving model....")
+            saver.save(sess=sess, save_path=parameter.MODEL_SAVING_PATH, global_step=i)
+            print("model saving done!")
 
 
 if __name__=="__main__":
