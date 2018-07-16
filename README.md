@@ -1,11 +1,15 @@
 Chinese word segment use Bi-LSTM and CRF 
 
 #### requirements:
->**tensorflow-gpu>=1.4**
+- **python3.5+**
+- **tensorflow-gpu>=1.8**
+- **pandas**
+- **numpy**
+- **scikit-learn**
 
->**pandas**
+Usage:
 
->**numpy**
-
->**scikit-learn**
+1. run `data_processing.py` to convert the original corpus to dataset
+2. `cd src`find all the models
+3. go into a model directory and run `python train.py` 
 

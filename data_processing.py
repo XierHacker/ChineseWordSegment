@@ -1,6 +1,6 @@
 '''
 #   BMES taged corpus
-#   author:xiekun 2017.12.22
+#   author:xierhacker 2017.12.22
 '''
 import numpy as np
 import pandas as pd
