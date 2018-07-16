@@ -54,7 +54,7 @@ class BiLSTM():
         )
 
         #把输入扩展为字embedding之后的形式.作为LSTM的真正输入
-        inputs = tf.nn.embedding_lookup(params=embeddings, ids=self.X_p, name="embeded_input")
+        inputs = tf.nn.embedding_lookup(params=embeddings, ids=X, name="embeded_input")
 
         # bisltm
         # forward part

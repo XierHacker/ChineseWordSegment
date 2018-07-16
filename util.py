@@ -7,7 +7,7 @@ def words_cut(tags,sentence):
 
 
 # display accuracy and loss information
-def showInfo(self, print_log=False, loss=None, accuracy=None, train_losses=None, train_accus=None):
+def showInfo(print_log=False, loss=None, accuracy=None, train_losses=None, train_accus=None):
     if print_log:
         print("----training loss  : ", loss)
         print("----train accuracy : ", accuracy)
